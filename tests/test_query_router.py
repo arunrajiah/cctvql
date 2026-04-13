@@ -1,6 +1,7 @@
 """
 Tests for the QueryRouter (cctvql.core.query_router).
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -15,6 +16,7 @@ from cctvql.llm.base import LLMResponse
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 async def router():
@@ -31,6 +33,7 @@ async def router():
 # ---------------------------------------------------------------------------
 # Intent routing
 # ---------------------------------------------------------------------------
+
 
 async def test_route_list_cameras(router):
     ctx = QueryContext(intent="list_cameras", raw_query="show me all cameras")

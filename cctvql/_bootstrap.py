@@ -81,12 +81,14 @@ def _setup_llms(llm_config: dict) -> None:
 def _create_llm(provider: str, cfg: dict):
     if provider == "ollama":
         from cctvql.llm.ollama_backend import OllamaBackend
+
         return OllamaBackend(
             host=cfg.get("host", "http://localhost:11434"),
             model=cfg.get("model", "llama3"),
         )
     elif provider == "openai":
         from cctvql.llm.openai_backend import OpenAIBackend
+
         return OpenAIBackend(
             api_key=cfg.get("api_key") or os.environ.get("OPENAI_API_KEY"),
             model=cfg.get("model", "gpt-4o-mini"),
@@ -94,6 +96,7 @@ def _create_llm(provider: str, cfg: dict):
         )
     elif provider == "anthropic":
         from cctvql.llm.anthropic_backend import AnthropicBackend
+
         return AnthropicBackend(
             api_key=cfg.get("api_key") or os.environ.get("ANTHROPIC_API_KEY"),
             model=cfg.get("model", "claude-haiku-4-5-20251001"),
@@ -130,6 +133,7 @@ def _setup_adapters(adapters_config: dict) -> None:
 def _create_adapter(adapter_type: str, cfg: dict):
     if adapter_type == "frigate":
         from cctvql.adapters.frigate import FrigateAdapter
+
         return FrigateAdapter(
             host=cfg.get("host", "http://localhost:5000"),
             mqtt_host=cfg.get("mqtt_host"),
@@ -137,6 +141,7 @@ def _create_adapter(adapter_type: str, cfg: dict):
         )
     elif adapter_type == "onvif":
         from cctvql.adapters.onvif import ONVIFAdapter
+
         return ONVIFAdapter(
             host=cfg.get("host", "192.168.1.100"),
             port=cfg.get("port", 80),
@@ -145,6 +150,7 @@ def _create_adapter(adapter_type: str, cfg: dict):
         )
     elif adapter_type == "demo":
         from cctvql.adapters.demo import DemoAdapter
+
         return DemoAdapter()
     else:
         raise ValueError(f"Unknown adapter type: {adapter_type}")

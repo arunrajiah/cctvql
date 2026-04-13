@@ -34,8 +34,10 @@ def main() -> None:
 
     if args.command == "chat":
         from cctvql._bootstrap import bootstrap
+
         bootstrap(args.config)
         from cctvql.interfaces.cli import run_cli
+
         run_cli(
             adapter_name=args.adapter,
             llm_name=args.llm,
@@ -44,8 +46,10 @@ def main() -> None:
 
     elif args.command == "serve":
         from cctvql._bootstrap import bootstrap
+
         bootstrap(args.config)
         import uvicorn
+
         uvicorn.run(
             "cctvql.interfaces.rest_api:app",
             host=args.host,

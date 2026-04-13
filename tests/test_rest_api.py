@@ -1,6 +1,7 @@
 """
 Tests for the FastAPI REST API (cctvql.interfaces.rest_api).
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -15,6 +16,7 @@ from cctvql.llm.base import LLMRegistry, LLMResponse
 # ---------------------------------------------------------------------------
 # Setup / teardown registries before each test
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def setup_registries():
@@ -55,6 +57,7 @@ def setup_registries():
 async def client():
     """Create an async httpx client using ASGITransport to talk to the FastAPI app."""
     from cctvql.interfaces.rest_api import _sessions, app
+
     _sessions.clear()
 
     transport = httpx.ASGITransport(app=app)
@@ -65,6 +68,7 @@ async def client():
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 async def test_health_endpoint(client):
     resp = await client.get("/health")

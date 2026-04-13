@@ -81,27 +81,63 @@ _CAMERAS: list[Camera] = [
 
 _ZONES: list[Zone] = [
     # Front Door zones
-    Zone(id="zone_porch", name="porch", camera_id="cam_front_door",
-         coordinates=[(0.1, 0.3), (0.9, 0.3), (0.9, 0.9), (0.1, 0.9)]),
-    Zone(id="zone_walkway", name="walkway", camera_id="cam_front_door",
-         coordinates=[(0.3, 0.0), (0.7, 0.0), (0.7, 0.4), (0.3, 0.4)]),
+    Zone(
+        id="zone_porch",
+        name="porch",
+        camera_id="cam_front_door",
+        coordinates=[(0.1, 0.3), (0.9, 0.3), (0.9, 0.9), (0.1, 0.9)],
+    ),
+    Zone(
+        id="zone_walkway",
+        name="walkway",
+        camera_id="cam_front_door",
+        coordinates=[(0.3, 0.0), (0.7, 0.0), (0.7, 0.4), (0.3, 0.4)],
+    ),
     # Backyard zones
-    Zone(id="zone_patio", name="patio", camera_id="cam_backyard",
-         coordinates=[(0.0, 0.5), (0.5, 0.5), (0.5, 1.0), (0.0, 1.0)]),
-    Zone(id="zone_lawn", name="lawn", camera_id="cam_backyard",
-         coordinates=[(0.5, 0.2), (1.0, 0.2), (1.0, 0.8), (0.5, 0.8)]),
-    Zone(id="zone_pool", name="pool", camera_id="cam_backyard",
-         coordinates=[(0.2, 0.0), (0.8, 0.0), (0.8, 0.3), (0.2, 0.3)]),
+    Zone(
+        id="zone_patio",
+        name="patio",
+        camera_id="cam_backyard",
+        coordinates=[(0.0, 0.5), (0.5, 0.5), (0.5, 1.0), (0.0, 1.0)],
+    ),
+    Zone(
+        id="zone_lawn",
+        name="lawn",
+        camera_id="cam_backyard",
+        coordinates=[(0.5, 0.2), (1.0, 0.2), (1.0, 0.8), (0.5, 0.8)],
+    ),
+    Zone(
+        id="zone_pool",
+        name="pool",
+        camera_id="cam_backyard",
+        coordinates=[(0.2, 0.0), (0.8, 0.0), (0.8, 0.3), (0.2, 0.3)],
+    ),
     # Garage zones
-    Zone(id="zone_driveway_entrance", name="driveway_entrance", camera_id="cam_garage",
-         coordinates=[(0.0, 0.0), (1.0, 0.0), (1.0, 0.4), (0.0, 0.4)]),
-    Zone(id="zone_parking", name="parking", camera_id="cam_garage",
-         coordinates=[(0.1, 0.4), (0.9, 0.4), (0.9, 1.0), (0.1, 1.0)]),
+    Zone(
+        id="zone_driveway_entrance",
+        name="driveway_entrance",
+        camera_id="cam_garage",
+        coordinates=[(0.0, 0.0), (1.0, 0.0), (1.0, 0.4), (0.0, 0.4)],
+    ),
+    Zone(
+        id="zone_parking",
+        name="parking",
+        camera_id="cam_garage",
+        coordinates=[(0.1, 0.4), (0.9, 0.4), (0.9, 1.0), (0.1, 1.0)],
+    ),
     # Driveway zones
-    Zone(id="zone_street", name="street", camera_id="cam_driveway",
-         coordinates=[(0.0, 0.0), (1.0, 0.0), (1.0, 0.3), (0.0, 0.3)]),
-    Zone(id="zone_driveway", name="driveway", camera_id="cam_driveway",
-         coordinates=[(0.2, 0.3), (0.8, 0.3), (0.8, 1.0), (0.2, 1.0)]),
+    Zone(
+        id="zone_street",
+        name="street",
+        camera_id="cam_driveway",
+        coordinates=[(0.0, 0.0), (1.0, 0.0), (1.0, 0.3), (0.0, 0.3)],
+    ),
+    Zone(
+        id="zone_driveway",
+        name="driveway",
+        camera_id="cam_driveway",
+        coordinates=[(0.2, 0.3), (0.8, 0.3), (0.8, 1.0), (0.2, 1.0)],
+    ),
 ]
 
 
@@ -113,183 +149,329 @@ def _t(hours_ago: float, minutes: float = 0) -> datetime:
 _EVENTS: list[Event] = [
     # --- Front Door events ---
     Event(
-        id="evt_001", camera_id="cam_front_door", camera_name="Front Door",
+        id="evt_001",
+        camera_id="cam_front_door",
+        camera_name="Front Door",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(1), end_time=_t(1) + timedelta(seconds=12),
-        objects=[DetectedObject(label=ObjectLabel.PERSON, confidence=0.97,
-                                bounding_box=BoundingBox(0.30, 0.25, 0.65, 0.90))],
+        start_time=_t(1),
+        end_time=_t(1) + timedelta(seconds=12),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.PERSON,
+                confidence=0.97,
+                bounding_box=BoundingBox(0.30, 0.25, 0.65, 0.90),
+            )
+        ],
         zones=["porch"],
         snapshot_url="http://demo.local/events/evt_001/snapshot.jpg",
     ),
     Event(
-        id="evt_002", camera_id="cam_front_door", camera_name="Front Door",
+        id="evt_002",
+        camera_id="cam_front_door",
+        camera_name="Front Door",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(3, 15), end_time=_t(3, 15) + timedelta(seconds=8),
-        objects=[DetectedObject(label=ObjectLabel.PACKAGE, confidence=0.91,
-                                bounding_box=BoundingBox(0.40, 0.60, 0.60, 0.85))],
+        start_time=_t(3, 15),
+        end_time=_t(3, 15) + timedelta(seconds=8),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.PACKAGE,
+                confidence=0.91,
+                bounding_box=BoundingBox(0.40, 0.60, 0.60, 0.85),
+            )
+        ],
         zones=["porch"],
         snapshot_url="http://demo.local/events/evt_002/snapshot.jpg",
     ),
     Event(
-        id="evt_003", camera_id="cam_front_door", camera_name="Front Door",
+        id="evt_003",
+        camera_id="cam_front_door",
+        camera_name="Front Door",
         event_type=EventType.ZONE_ENTER,
-        start_time=_t(5, 30), end_time=_t(5, 30) + timedelta(seconds=20),
-        objects=[DetectedObject(label=ObjectLabel.PERSON, confidence=0.85,
-                                bounding_box=BoundingBox(0.10, 0.20, 0.45, 0.88))],
+        start_time=_t(5, 30),
+        end_time=_t(5, 30) + timedelta(seconds=20),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.PERSON,
+                confidence=0.85,
+                bounding_box=BoundingBox(0.10, 0.20, 0.45, 0.88),
+            )
+        ],
         zones=["walkway"],
         snapshot_url="http://demo.local/events/evt_003/snapshot.jpg",
     ),
     Event(
-        id="evt_004", camera_id="cam_front_door", camera_name="Front Door",
+        id="evt_004",
+        camera_id="cam_front_door",
+        camera_name="Front Door",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(8), end_time=_t(8) + timedelta(seconds=5),
-        objects=[DetectedObject(label=ObjectLabel.CAT, confidence=0.72,
-                                bounding_box=BoundingBox(0.55, 0.70, 0.75, 0.95))],
+        start_time=_t(8),
+        end_time=_t(8) + timedelta(seconds=5),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.CAT,
+                confidence=0.72,
+                bounding_box=BoundingBox(0.55, 0.70, 0.75, 0.95),
+            )
+        ],
         zones=["porch"],
         snapshot_url="http://demo.local/events/evt_004/snapshot.jpg",
     ),
     Event(
-        id="evt_005", camera_id="cam_front_door", camera_name="Front Door",
+        id="evt_005",
+        camera_id="cam_front_door",
+        camera_name="Front Door",
         event_type=EventType.MOTION,
-        start_time=_t(12), end_time=_t(12) + timedelta(seconds=3),
+        start_time=_t(12),
+        end_time=_t(12) + timedelta(seconds=3),
         objects=[],
         zones=["walkway"],
     ),
     # --- Backyard events ---
     Event(
-        id="evt_006", camera_id="cam_backyard", camera_name="Backyard",
+        id="evt_006",
+        camera_id="cam_backyard",
+        camera_name="Backyard",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(0, 45), end_time=_t(0, 45) + timedelta(seconds=30),
-        objects=[DetectedObject(label=ObjectLabel.DOG, confidence=0.94,
-                                bounding_box=BoundingBox(0.20, 0.40, 0.55, 0.85))],
+        start_time=_t(0, 45),
+        end_time=_t(0, 45) + timedelta(seconds=30),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.DOG,
+                confidence=0.94,
+                bounding_box=BoundingBox(0.20, 0.40, 0.55, 0.85),
+            )
+        ],
         zones=["lawn"],
         snapshot_url="http://demo.local/events/evt_006/snapshot.jpg",
     ),
     Event(
-        id="evt_007", camera_id="cam_backyard", camera_name="Backyard",
+        id="evt_007",
+        camera_id="cam_backyard",
+        camera_name="Backyard",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(2, 10), end_time=_t(2, 10) + timedelta(seconds=18),
-        objects=[DetectedObject(label=ObjectLabel.PERSON, confidence=0.96,
-                                bounding_box=BoundingBox(0.15, 0.30, 0.50, 0.92))],
+        start_time=_t(2, 10),
+        end_time=_t(2, 10) + timedelta(seconds=18),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.PERSON,
+                confidence=0.96,
+                bounding_box=BoundingBox(0.15, 0.30, 0.50, 0.92),
+            )
+        ],
         zones=["patio"],
         snapshot_url="http://demo.local/events/evt_007/snapshot.jpg",
     ),
     Event(
-        id="evt_008", camera_id="cam_backyard", camera_name="Backyard",
+        id="evt_008",
+        camera_id="cam_backyard",
+        camera_name="Backyard",
         event_type=EventType.ZONE_ENTER,
-        start_time=_t(4), end_time=_t(4) + timedelta(seconds=45),
-        objects=[DetectedObject(label=ObjectLabel.DOG, confidence=0.88,
-                                bounding_box=BoundingBox(0.30, 0.10, 0.70, 0.50))],
+        start_time=_t(4),
+        end_time=_t(4) + timedelta(seconds=45),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.DOG,
+                confidence=0.88,
+                bounding_box=BoundingBox(0.30, 0.10, 0.70, 0.50),
+            )
+        ],
         zones=["pool"],
         snapshot_url="http://demo.local/events/evt_008/snapshot.jpg",
     ),
     Event(
-        id="evt_009", camera_id="cam_backyard", camera_name="Backyard",
+        id="evt_009",
+        camera_id="cam_backyard",
+        camera_name="Backyard",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(7, 20), end_time=_t(7, 20) + timedelta(seconds=10),
+        start_time=_t(7, 20),
+        end_time=_t(7, 20) + timedelta(seconds=10),
         objects=[
-            DetectedObject(label=ObjectLabel.PERSON, confidence=0.93,
-                           bounding_box=BoundingBox(0.05, 0.25, 0.35, 0.90)),
-            DetectedObject(label=ObjectLabel.DOG, confidence=0.89,
-                           bounding_box=BoundingBox(0.40, 0.50, 0.65, 0.85)),
+            DetectedObject(
+                label=ObjectLabel.PERSON,
+                confidence=0.93,
+                bounding_box=BoundingBox(0.05, 0.25, 0.35, 0.90),
+            ),
+            DetectedObject(
+                label=ObjectLabel.DOG,
+                confidence=0.89,
+                bounding_box=BoundingBox(0.40, 0.50, 0.65, 0.85),
+            ),
         ],
         zones=["lawn"],
         snapshot_url="http://demo.local/events/evt_009/snapshot.jpg",
     ),
     Event(
-        id="evt_010", camera_id="cam_backyard", camera_name="Backyard",
+        id="evt_010",
+        camera_id="cam_backyard",
+        camera_name="Backyard",
         event_type=EventType.MOTION,
-        start_time=_t(10), end_time=_t(10) + timedelta(seconds=6),
+        start_time=_t(10),
+        end_time=_t(10) + timedelta(seconds=6),
         objects=[],
         zones=["patio"],
     ),
     # --- Garage events ---
     Event(
-        id="evt_011", camera_id="cam_garage", camera_name="Garage",
+        id="evt_011",
+        camera_id="cam_garage",
+        camera_name="Garage",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(0, 30), end_time=_t(0, 30) + timedelta(seconds=25),
-        objects=[DetectedObject(label=ObjectLabel.CAR, confidence=0.99,
-                                bounding_box=BoundingBox(0.10, 0.20, 0.90, 0.85))],
+        start_time=_t(0, 30),
+        end_time=_t(0, 30) + timedelta(seconds=25),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.CAR,
+                confidence=0.99,
+                bounding_box=BoundingBox(0.10, 0.20, 0.90, 0.85),
+            )
+        ],
         zones=["parking"],
         snapshot_url="http://demo.local/events/evt_011/snapshot.jpg",
     ),
     Event(
-        id="evt_012", camera_id="cam_garage", camera_name="Garage",
+        id="evt_012",
+        camera_id="cam_garage",
+        camera_name="Garage",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(2, 50), end_time=_t(2, 50) + timedelta(seconds=15),
-        objects=[DetectedObject(label=ObjectLabel.PERSON, confidence=0.90,
-                                bounding_box=BoundingBox(0.35, 0.30, 0.60, 0.95))],
+        start_time=_t(2, 50),
+        end_time=_t(2, 50) + timedelta(seconds=15),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.PERSON,
+                confidence=0.90,
+                bounding_box=BoundingBox(0.35, 0.30, 0.60, 0.95),
+            )
+        ],
         zones=["driveway_entrance"],
         snapshot_url="http://demo.local/events/evt_012/snapshot.jpg",
     ),
     Event(
-        id="evt_013", camera_id="cam_garage", camera_name="Garage",
+        id="evt_013",
+        camera_id="cam_garage",
+        camera_name="Garage",
         event_type=EventType.ZONE_EXIT,
-        start_time=_t(6), end_time=_t(6) + timedelta(seconds=20),
-        objects=[DetectedObject(label=ObjectLabel.CAR, confidence=0.97,
-                                bounding_box=BoundingBox(0.05, 0.15, 0.85, 0.80))],
+        start_time=_t(6),
+        end_time=_t(6) + timedelta(seconds=20),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.CAR,
+                confidence=0.97,
+                bounding_box=BoundingBox(0.05, 0.15, 0.85, 0.80),
+            )
+        ],
         zones=["parking"],
         snapshot_url="http://demo.local/events/evt_013/snapshot.jpg",
     ),
     Event(
-        id="evt_014", camera_id="cam_garage", camera_name="Garage",
+        id="evt_014",
+        camera_id="cam_garage",
+        camera_name="Garage",
         event_type=EventType.MOTION,
-        start_time=_t(9, 10), end_time=_t(9, 10) + timedelta(seconds=4),
+        start_time=_t(9, 10),
+        end_time=_t(9, 10) + timedelta(seconds=4),
         objects=[],
         zones=["driveway_entrance"],
     ),
     Event(
-        id="evt_015", camera_id="cam_garage", camera_name="Garage",
+        id="evt_015",
+        camera_id="cam_garage",
+        camera_name="Garage",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(14), end_time=_t(14) + timedelta(seconds=10),
-        objects=[DetectedObject(label=ObjectLabel.BICYCLE, confidence=0.82,
-                                bounding_box=BoundingBox(0.25, 0.35, 0.55, 0.80))],
+        start_time=_t(14),
+        end_time=_t(14) + timedelta(seconds=10),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.BICYCLE,
+                confidence=0.82,
+                bounding_box=BoundingBox(0.25, 0.35, 0.55, 0.80),
+            )
+        ],
         zones=["parking"],
         snapshot_url="http://demo.local/events/evt_015/snapshot.jpg",
     ),
     # --- Driveway events ---
     Event(
-        id="evt_016", camera_id="cam_driveway", camera_name="Driveway",
+        id="evt_016",
+        camera_id="cam_driveway",
+        camera_name="Driveway",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(0, 15), end_time=_t(0, 15) + timedelta(seconds=14),
-        objects=[DetectedObject(label=ObjectLabel.CAR, confidence=0.98,
-                                bounding_box=BoundingBox(0.15, 0.10, 0.85, 0.70))],
+        start_time=_t(0, 15),
+        end_time=_t(0, 15) + timedelta(seconds=14),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.CAR,
+                confidence=0.98,
+                bounding_box=BoundingBox(0.15, 0.10, 0.85, 0.70),
+            )
+        ],
         zones=["driveway"],
         snapshot_url="http://demo.local/events/evt_016/snapshot.jpg",
     ),
     Event(
-        id="evt_017", camera_id="cam_driveway", camera_name="Driveway",
+        id="evt_017",
+        camera_id="cam_driveway",
+        camera_name="Driveway",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(1, 40), end_time=_t(1, 40) + timedelta(seconds=9),
-        objects=[DetectedObject(label=ObjectLabel.PERSON, confidence=0.92,
-                                bounding_box=BoundingBox(0.40, 0.20, 0.60, 0.90))],
+        start_time=_t(1, 40),
+        end_time=_t(1, 40) + timedelta(seconds=9),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.PERSON,
+                confidence=0.92,
+                bounding_box=BoundingBox(0.40, 0.20, 0.60, 0.90),
+            )
+        ],
         zones=["driveway"],
         snapshot_url="http://demo.local/events/evt_017/snapshot.jpg",
     ),
     Event(
-        id="evt_018", camera_id="cam_driveway", camera_name="Driveway",
+        id="evt_018",
+        camera_id="cam_driveway",
+        camera_name="Driveway",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(4, 30), end_time=_t(4, 30) + timedelta(seconds=22),
-        objects=[DetectedObject(label=ObjectLabel.TRUCK, confidence=0.95,
-                                bounding_box=BoundingBox(0.05, 0.05, 0.95, 0.75))],
+        start_time=_t(4, 30),
+        end_time=_t(4, 30) + timedelta(seconds=22),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.TRUCK,
+                confidence=0.95,
+                bounding_box=BoundingBox(0.05, 0.05, 0.95, 0.75),
+            )
+        ],
         zones=["street"],
         snapshot_url="http://demo.local/events/evt_018/snapshot.jpg",
     ),
     Event(
-        id="evt_019", camera_id="cam_driveway", camera_name="Driveway",
+        id="evt_019",
+        camera_id="cam_driveway",
+        camera_name="Driveway",
         event_type=EventType.OBJECT_DETECTED,
-        start_time=_t(6, 45), end_time=_t(6, 45) + timedelta(seconds=11),
-        objects=[DetectedObject(label=ObjectLabel.PACKAGE, confidence=0.87,
-                                bounding_box=BoundingBox(0.35, 0.55, 0.55, 0.80))],
+        start_time=_t(6, 45),
+        end_time=_t(6, 45) + timedelta(seconds=11),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.PACKAGE,
+                confidence=0.87,
+                bounding_box=BoundingBox(0.35, 0.55, 0.55, 0.80),
+            )
+        ],
         zones=["driveway"],
         snapshot_url="http://demo.local/events/evt_019/snapshot.jpg",
     ),
     Event(
-        id="evt_020", camera_id="cam_driveway", camera_name="Driveway",
+        id="evt_020",
+        camera_id="cam_driveway",
+        camera_name="Driveway",
         event_type=EventType.LINE_CROSSING,
-        start_time=_t(11, 30), end_time=_t(11, 30) + timedelta(seconds=7),
-        objects=[DetectedObject(label=ObjectLabel.MOTORCYCLE, confidence=0.80,
-                                bounding_box=BoundingBox(0.20, 0.15, 0.70, 0.65))],
+        start_time=_t(11, 30),
+        end_time=_t(11, 30) + timedelta(seconds=7),
+        objects=[
+            DetectedObject(
+                label=ObjectLabel.MOTORCYCLE,
+                confidence=0.80,
+                bounding_box=BoundingBox(0.20, 0.15, 0.70, 0.65),
+            )
+        ],
         zones=["street"],
         snapshot_url="http://demo.local/events/evt_020/snapshot.jpg",
     ),
@@ -297,36 +479,51 @@ _EVENTS: list[Event] = [
 
 _CLIPS: list[Clip] = [
     Clip(
-        id="clip_001", camera_id="cam_front_door", camera_name="Front Door",
-        start_time=_t(1), end_time=_t(1) + timedelta(minutes=2),
+        id="clip_001",
+        camera_id="cam_front_door",
+        camera_name="Front Door",
+        start_time=_t(1),
+        end_time=_t(1) + timedelta(minutes=2),
         download_url="http://demo.local/clips/clip_001.mp4",
         thumbnail_url="http://demo.local/clips/clip_001_thumb.jpg",
         size_bytes=15_200_000,
     ),
     Clip(
-        id="clip_002", camera_id="cam_backyard", camera_name="Backyard",
-        start_time=_t(2, 10), end_time=_t(2, 10) + timedelta(minutes=3),
+        id="clip_002",
+        camera_id="cam_backyard",
+        camera_name="Backyard",
+        start_time=_t(2, 10),
+        end_time=_t(2, 10) + timedelta(minutes=3),
         download_url="http://demo.local/clips/clip_002.mp4",
         thumbnail_url="http://demo.local/clips/clip_002_thumb.jpg",
         size_bytes=22_400_000,
     ),
     Clip(
-        id="clip_003", camera_id="cam_garage", camera_name="Garage",
-        start_time=_t(0, 30), end_time=_t(0, 30) + timedelta(minutes=1, seconds=30),
+        id="clip_003",
+        camera_id="cam_garage",
+        camera_name="Garage",
+        start_time=_t(0, 30),
+        end_time=_t(0, 30) + timedelta(minutes=1, seconds=30),
         download_url="http://demo.local/clips/clip_003.mp4",
         thumbnail_url="http://demo.local/clips/clip_003_thumb.jpg",
         size_bytes=11_800_000,
     ),
     Clip(
-        id="clip_004", camera_id="cam_driveway", camera_name="Driveway",
-        start_time=_t(4, 30), end_time=_t(4, 30) + timedelta(minutes=2, seconds=45),
+        id="clip_004",
+        camera_id="cam_driveway",
+        camera_name="Driveway",
+        start_time=_t(4, 30),
+        end_time=_t(4, 30) + timedelta(minutes=2, seconds=45),
         download_url="http://demo.local/clips/clip_004.mp4",
         thumbnail_url="http://demo.local/clips/clip_004_thumb.jpg",
         size_bytes=19_600_000,
     ),
     Clip(
-        id="clip_005", camera_id="cam_driveway", camera_name="Driveway",
-        start_time=_t(6, 45), end_time=_t(6, 45) + timedelta(minutes=1),
+        id="clip_005",
+        camera_id="cam_driveway",
+        camera_name="Driveway",
+        start_time=_t(6, 45),
+        end_time=_t(6, 45) + timedelta(minutes=1),
         download_url="http://demo.local/clips/clip_005.mp4",
         thumbnail_url="http://demo.local/clips/clip_005_thumb.jpg",
         size_bytes=8_500_000,
@@ -338,7 +535,7 @@ _SYSTEM_INFO = SystemInfo(
     version="0.1.0-demo",
     camera_count=len(_CAMERAS),
     uptime_seconds=86400,  # 24 hours
-    storage_used_bytes=256 * 1024 * 1024 * 1024,   # 256 GB
+    storage_used_bytes=256 * 1024 * 1024 * 1024,  # 256 GB
     storage_total_bytes=1024 * 1024 * 1024 * 1024,  # 1 TB
     metadata={"mode": "demo", "deterministic": True},
 )
@@ -347,6 +544,7 @@ _SYSTEM_INFO = SystemInfo(
 # ---------------------------------------------------------------------------
 # Adapter implementation
 # ---------------------------------------------------------------------------
+
 
 class DemoAdapter(BaseAdapter):
     """

@@ -12,9 +12,7 @@ from cctvql.llm.base import LLMResponse
 def make_mock_llm(json_response: str):
     llm = MagicMock()
     llm.name = "mock"
-    llm.complete = AsyncMock(
-        return_value=LLMResponse(content=json_response, model="mock")
-    )
+    llm.complete = AsyncMock(return_value=LLMResponse(content=json_response, model="mock"))
     return llm
 
 
@@ -44,7 +42,9 @@ async def test_parse_get_events_with_label():
 @pytest.mark.asyncio
 async def test_parse_with_markdown_json():
     """LLM sometimes wraps JSON in markdown code blocks."""
-    response = '```json\n{"intent": "get_system_info", "limit": 20, "explanation": "system info"}\n```'  # noqa: E501
+    response = (
+        '```json\n{"intent": "get_system_info", "limit": 20, "explanation": "system info"}\n```'  # noqa: E501
+    )
     llm = make_mock_llm(response)
     engine = NLPEngine(llm)
     ctx = await engine.parse("How is the system doing?")

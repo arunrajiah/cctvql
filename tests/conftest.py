@@ -1,6 +1,7 @@
 """
 Shared fixtures for cctvQL test suite.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone

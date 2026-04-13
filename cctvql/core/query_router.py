@@ -43,12 +43,12 @@ class QueryRouter:
         self.adapter = adapter
         self.llm = llm
         self._intent_map = {
-            "list_cameras":   self._handle_list_cameras,
-            "get_camera":     self._handle_get_camera,
-            "get_events":     self._handle_get_events,
-            "get_clips":      self._handle_get_clips,
-            "get_snapshot":   self._handle_get_snapshot,
-            "get_system_info":self._handle_get_system_info,
+            "list_cameras": self._handle_list_cameras,
+            "get_camera": self._handle_get_camera,
+            "get_events": self._handle_get_events,
+            "get_clips": self._handle_get_clips,
+            "get_snapshot": self._handle_get_snapshot,
+            "get_system_info": self._handle_get_system_info,
             "describe_event": self._handle_describe_event,
         }
 
@@ -59,9 +59,9 @@ class QueryRouter:
         if not handler:
             return (
                 "I didn't understand that query. You can ask me things like:\n"
-                "- \"Show me all cameras\"\n"
-                "- \"Any motion on the driveway camera in the last hour?\"\n"
-                "- \"Did a person appear on Camera 1 last night?\""
+                '- "Show me all cameras"\n'
+                '- "Any motion on the driveway camera in the last hour?"\n'
+                '- "Did a person appear on Camera 1 last night?"'
             )
 
         result: QueryResult = await handler(ctx)
@@ -82,12 +82,14 @@ class QueryRouter:
         cameras = await self.adapter.list_cameras()
         if not cameras:
             return QueryResult(
-                success=True, intent="list_cameras",
+                success=True,
+                intent="list_cameras",
                 summary="No cameras found in the system.",
             )
-        lines = [f"• **{c.name}** — {c.status.value}" +
-                 (f" ({c.location})" if c.location else "")
-                 for c in cameras]
+        lines = [
+            f"• **{c.name}** — {c.status.value}" + (f" ({c.location})" if c.location else "")
+            for c in cameras
+        ]
         summary = f"Found {len(cameras)} camera(s):\n" + "\n".join(lines)
         return QueryResult(success=True, intent="list_cameras", data=cameras, summary=summary)
 
@@ -98,7 +100,8 @@ class QueryRouter:
         )
         if not camera:
             return QueryResult(
-                success=True, intent="get_camera",
+                success=True,
+                intent="get_camera",
                 summary=f"Camera '{ctx.camera_name or ctx.camera_id}' not found.",
             )
         summary = (
@@ -121,10 +124,11 @@ class QueryRouter:
         )
         if not events:
             return QueryResult(
-                success=True, intent="get_events",
+                success=True,
+                intent="get_events",
                 summary="No events found matching your query.",
             )
-        lines = [f"• {e.to_summary()}" for e in events[:ctx.limit]]
+        lines = [f"• {e.to_summary()}" for e in events[: ctx.limit]]
         summary = f"Found {len(events)} event(s):\n" + "\n".join(lines)
         return QueryResult(success=True, intent="get_events", data=events, summary=summary)
 
@@ -138,7 +142,8 @@ class QueryRouter:
         )
         if not clips:
             return QueryResult(
-                success=True, intent="get_clips",
+                success=True,
+                intent="get_clips",
                 summary="No clips found for your query.",
             )
         lines = [
@@ -157,7 +162,8 @@ class QueryRouter:
         )
         if not url:
             return QueryResult(
-                success=True, intent="get_snapshot",
+                success=True,
+                intent="get_snapshot",
                 summary=f"Could not get snapshot for '{ctx.camera_name}'.",
             )
         summary = f"Live snapshot from **{ctx.camera_name}**: {url}"
@@ -167,7 +173,8 @@ class QueryRouter:
         info = await self.adapter.get_system_info()
         if not info:
             return QueryResult(
-                success=False, intent="get_system_info",
+                success=False,
+                intent="get_system_info",
                 error="Could not retrieve system info.",
             )
         used_gb = round(info.storage_used_bytes / 1e9, 1) if info.storage_used_bytes else "?"
@@ -186,13 +193,15 @@ class QueryRouter:
         event_id = ctx.extra.get("event_id") or ctx.camera_id
         if not event_id:
             return QueryResult(
-                success=False, intent="describe_event",
+                success=False,
+                intent="describe_event",
                 error="Please specify which event to describe.",
             )
         event = await self.adapter.get_event(event_id)
         if not event:
             return QueryResult(
-                success=True, intent="describe_event",
+                success=True,
+                intent="describe_event",
                 summary=f"Event '{event_id}' not found.",
             )
         return QueryResult(success=True, intent="describe_event", data=event)

@@ -117,15 +117,17 @@ class FrigateAdapter(BaseAdapter):
             )
             zones = list(cam_cfg.get("zones", {}).keys())
 
-            cameras.append(Camera(
-                id=cam_name,
-                name=cam_name,
-                status=status,
-                zones=zones,
-                snapshot_url=f"{self.host}/api/{cam_name}/latest.jpg",
-                stream_url=f"{self.host}/live/{cam_name}",
-                metadata={"detect": cam_cfg.get("detect", {})}
-            ))
+            cameras.append(
+                Camera(
+                    id=cam_name,
+                    name=cam_name,
+                    status=status,
+                    zones=zones,
+                    snapshot_url=f"{self.host}/api/{cam_name}/latest.jpg",
+                    stream_url=f"{self.host}/live/{cam_name}",
+                    metadata={"detect": cam_cfg.get("detect", {})},
+                )
+            )
         return cameras
 
     async def get_camera(
@@ -205,15 +207,17 @@ class FrigateAdapter(BaseAdapter):
         for e in data:
             event = self._parse_event(e)
             if event.clip_url and event.end_time:
-                clips.append(Clip(
-                    id=event.id,
-                    camera_id=event.camera_id,
-                    camera_name=event.camera_name,
-                    start_time=event.start_time,
-                    end_time=event.end_time,
-                    download_url=event.clip_url,
-                    thumbnail_url=event.thumbnail_url,
-                ))
+                clips.append(
+                    Clip(
+                        id=event.id,
+                        camera_id=event.camera_id,
+                        camera_name=event.camera_name,
+                        start_time=event.start_time,
+                        end_time=event.end_time,
+                        download_url=event.clip_url,
+                        thumbnail_url=event.thumbnail_url,
+                    )
+                )
         return clips
 
     # ------------------------------------------------------------------
@@ -270,12 +274,14 @@ class FrigateAdapter(BaseAdapter):
             for zone_name, zone_cfg in cam_cfg.get("zones", {}).items():
                 coords = zone_cfg.get("coordinates", "")
                 parsed_coords = self._parse_coords(coords)
-                zones.append(Zone(
-                    id=f"{cam_name}_{zone_name}",
-                    name=zone_name,
-                    camera_id=cam_name,
-                    coordinates=parsed_coords,
-                ))
+                zones.append(
+                    Zone(
+                        id=f"{cam_name}_{zone_name}",
+                        name=zone_name,
+                        camera_id=cam_name,
+                        coordinates=parsed_coords,
+                    )
+                )
         return zones
 
     # ------------------------------------------------------------------
@@ -309,6 +315,7 @@ class FrigateAdapter(BaseAdapter):
 
     def _on_mqtt_message(self, client: Any, userdata: Any, msg: Any) -> None:
         import json
+
         try:
             payload = json.loads(msg.payload.decode())
             after = payload.get("after", {})
@@ -346,15 +353,19 @@ class FrigateAdapter(BaseAdapter):
         bbox = None
         if box and len(box) == 4:
             bbox = BoundingBox(
-                x_min=box[0], y_min=box[1],
-                x_max=box[2], y_max=box[3],
+                x_min=box[0],
+                y_min=box[1],
+                x_max=box[2],
+                y_max=box[3],
             )
         if label:
-            objects.append(DetectedObject(
-                label=label,
-                confidence=float(score),
-                bounding_box=bbox,
-            ))
+            objects.append(
+                DetectedObject(
+                    label=label,
+                    confidence=float(score),
+                    bounding_box=bbox,
+                )
+            )
 
         camera = data.get("camera", "unknown")
         event_id = data.get("id", "")
