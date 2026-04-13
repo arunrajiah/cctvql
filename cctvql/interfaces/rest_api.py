@@ -24,17 +24,30 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
 from cctvql.adapters.base import AdapterRegistry
+from cctvql.core.alerts import AlertEngine, make_rule_from_context
+from cctvql.core.multi_query import MultiSystemRouter
 from cctvql.core.nlp_engine import NLPEngine
 from cctvql.core.query_router import QueryRouter
 from cctvql.core.schema import Event
@@ -98,11 +111,15 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _alert_engine
     adapter = AdapterRegistry.get_active()
     connected = await adapter.connect()
     if not connected:
         logger.error("Failed to connect to CCTV adapter on startup")
+    _alert_engine = AlertEngine(AdapterRegistry)
+    await _alert_engine.start()
     yield
+    await _alert_engine.stop()
 
 
 app = FastAPI(
@@ -122,9 +139,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files (Web UI)
+_static_dir = Path(__file__).parent / "static"
+if _static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
 # Global singletons (initialized on startup)
 _nlp: NLPEngine | None = None
 _router: QueryRouter | None = None
+_alert_engine: AlertEngine | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +158,7 @@ _router: QueryRouter | None = None
 class QueryRequest(BaseModel):
     query: str
     session_id: str | None = "default"
+    multi: bool = False  # if True, fan-out to all registered adapters
 
 
 class QueryResponse(BaseModel):
@@ -149,6 +173,44 @@ class HealthResponse(BaseModel):
     llm: str
     adapter_ok: bool
     llm_ok: bool
+
+
+class AlertRuleCreate(BaseModel):
+    name: str
+    description: str
+    camera_name: str | None = None
+    label: str | None = None
+    zone: str | None = None
+    time_start: str | None = None  # "22:00" HH:MM
+    time_end: str | None = None  # "06:00" HH:MM
+    webhook_url: str | None = None
+
+
+class AlertRuleUpdate(BaseModel):
+    enabled: bool | None = None
+    name: str | None = None
+    camera_name: str | None = None
+    label: str | None = None
+    zone: str | None = None
+    time_start: str | None = None
+    time_end: str | None = None
+    webhook_url: str | None = None
+
+
+class AlertRuleResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    camera_name: str | None
+    label: str | None
+    zone: str | None
+    time_start: str | None
+    time_end: str | None
+    webhook_url: str | None
+    enabled: bool
+    created_at: str
+    last_triggered: str | None
+    trigger_count: int
 
 
 # ---------------------------------------------------------------------------
@@ -217,21 +279,42 @@ async def websocket_events(websocket: WebSocket) -> None:
 # ---------------------------------------------------------------------------
 
 
+@app.get("/", response_class=HTMLResponse)
+async def root() -> HTMLResponse:
+    """Serve the cctvQL Web UI."""
+    index = Path(__file__).parent / "static" / "index.html"
+    return HTMLResponse(content=index.read_text())
+
+
 @app.post("/query", response_model=QueryResponse)
 async def query(req: QueryRequest) -> QueryResponse:
     """
     Submit a natural language query about your CCTV system.
 
+    Set ``multi=true`` to fan-out the query across all registered adapters
+    simultaneously and receive a merged response.
+
     Example:
         {"query": "Was there any motion on the driveway camera last night?"}
+        {"query": "Show me all cameras", "multi": true}
     """
     global _query_count
     try:
         nlp = _get_nlp_for_session(req.session_id or "default")
-        router = QueryRouter(AdapterRegistry.get_active(), LLMRegistry.get_active())
+        llm = LLMRegistry.get_active()
 
         ctx = await nlp.parse(req.query)
-        answer = await router.route(ctx)
+
+        if req.multi:
+            multi_router = MultiSystemRouter(llm)
+            answer = await multi_router.route(ctx)
+        else:
+            router = QueryRouter(
+                AdapterRegistry.get_active(),
+                llm,
+                alert_engine=_alert_engine,
+            )
+            answer = await router.route(ctx)
 
         _query_count += 1
 
@@ -325,6 +408,161 @@ async def clear_session(session_id: str) -> dict[str, str]:
     if session_id in _sessions:
         del _sessions[session_id]
     return {"status": "cleared", "session_id": session_id}
+
+
+# ---------------------------------------------------------------------------
+# Alert Rules CRUD
+# ---------------------------------------------------------------------------
+
+
+def _rule_to_response(rule) -> AlertRuleResponse:
+    """Convert an AlertRule dataclass to the Pydantic response model."""
+    return AlertRuleResponse(
+        id=rule.id,
+        name=rule.name,
+        description=rule.description,
+        camera_name=rule.camera_name,
+        label=rule.label,
+        zone=rule.zone,
+        time_start=rule.time_start,
+        time_end=rule.time_end,
+        webhook_url=rule.webhook_url,
+        enabled=rule.enabled,
+        created_at=rule.created_at.isoformat(),
+        last_triggered=rule.last_triggered.isoformat() if rule.last_triggered else None,
+        trigger_count=rule.trigger_count,
+    )
+
+
+def _require_alert_engine() -> AlertEngine:
+    if _alert_engine is None:
+        raise HTTPException(status_code=503, detail="Alert engine is not running.")
+    return _alert_engine
+
+
+@app.get("/alerts", response_model=list[AlertRuleResponse])
+async def list_alert_rules() -> list[AlertRuleResponse]:
+    """List all configured alert rules."""
+    engine = _require_alert_engine()
+    return [_rule_to_response(r) for r in engine.get_rules()]
+
+
+@app.post("/alerts", response_model=AlertRuleResponse, status_code=201)
+async def create_alert_rule(body: AlertRuleCreate) -> AlertRuleResponse:
+    """
+    Create a new alert rule.
+
+    The engine will start evaluating it on the next poll cycle.
+    """
+    engine = _require_alert_engine()
+    rule = make_rule_from_context(
+        name=body.name,
+        description=body.description,
+        camera_name=body.camera_name,
+        label=body.label,
+        zone=body.zone,
+        time_start=body.time_start,
+        time_end=body.time_end,
+        webhook_url=body.webhook_url,
+    )
+    engine.add_rule(rule)
+    return _rule_to_response(rule)
+
+
+@app.get("/alerts/{rule_id}", response_model=AlertRuleResponse)
+async def get_alert_rule(rule_id: str) -> AlertRuleResponse:
+    """Retrieve a specific alert rule by ID."""
+    engine = _require_alert_engine()
+    rule = engine.get_rule(rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail=f"Alert rule '{rule_id}' not found.")
+    return _rule_to_response(rule)
+
+
+@app.delete("/alerts/{rule_id}")
+async def delete_alert_rule(rule_id: str) -> dict[str, str]:
+    """Delete an alert rule by ID."""
+    engine = _require_alert_engine()
+    deleted = engine.remove_rule(rule_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Alert rule '{rule_id}' not found.")
+    return {"status": "deleted", "id": rule_id}
+
+
+@app.patch("/alerts/{rule_id}", response_model=AlertRuleResponse)
+async def update_alert_rule(rule_id: str, body: AlertRuleUpdate) -> AlertRuleResponse:
+    """
+    Update one or more fields of an alert rule.
+
+    Commonly used to enable or disable a rule:
+        PATCH /alerts/{id}  {"enabled": false}
+    """
+    engine = _require_alert_engine()
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=422, detail="No fields provided to update.")
+    rule = engine.update_rule(rule_id, **updates)
+    if rule is None:
+        raise HTTPException(status_code=404, detail=f"Alert rule '{rule_id}' not found.")
+    return _rule_to_response(rule)
+
+
+# ---------------------------------------------------------------------------
+# Voice endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.post("/voice/query", response_model=QueryResponse)
+async def voice_query(
+    audio: UploadFile = File(...),
+    session_id: str | None = Form(None),
+) -> QueryResponse:
+    """
+    Accept audio file, transcribe with Whisper, run NLP query, return text answer.
+    Optionally returns audio if Accept: audio/* header is set.
+    """
+    import os
+
+    from cctvql.interfaces.voice import VoiceInterface
+
+    voice = VoiceInterface(
+        stt_backend=os.environ.get("CCTVQL_STT_BACKEND", "whisper_api"),
+        tts_backend=os.environ.get("CCTVQL_TTS_BACKEND", "none"),
+        whisper_api_key=os.environ.get("OPENAI_API_KEY"),
+    )
+    audio_bytes = await audio.read()
+    text = await voice.transcribe(audio_bytes, audio_format=audio.content_type or "wav")
+
+    # reuse existing query logic
+    sid = session_id or "default"
+    nlp = _get_nlp_for_session(sid)
+    router = QueryRouter(
+        AdapterRegistry.get_active(), LLMRegistry.get_active(), alert_engine=_alert_engine
+    )
+    ctx = await nlp.parse(text)
+    answer = await router.route(ctx)
+
+    return QueryResponse(answer=answer, intent=ctx.intent, session_id=sid)
+
+
+@app.post("/voice/synthesize")
+async def voice_synthesize(body: dict) -> Response:
+    """
+    Convert text to speech audio.
+    Body: {"text": "...", "voice": "alloy"}
+    Returns audio/mpeg bytes.
+    """
+    import os
+
+    from cctvql.interfaces.voice import VoiceInterface
+
+    voice = VoiceInterface(
+        tts_backend=os.environ.get("CCTVQL_TTS_BACKEND", "openai_tts"),
+        openai_tts_api_key=os.environ.get("OPENAI_API_KEY"),
+        tts_voice=body.get("voice", "alloy"),
+    )
+    audio_bytes = await voice.synthesize(body.get("text", ""))
+    return Response(content=audio_bytes, media_type="audio/mpeg")
 
 
 # ---------------------------------------------------------------------------

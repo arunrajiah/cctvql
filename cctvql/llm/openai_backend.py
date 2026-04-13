@@ -58,6 +58,68 @@ class OpenAIBackend(BaseLLM):
     def name(self) -> str:
         return "openai"
 
+    @property
+    def supports_vision(self) -> bool:
+        return True
+
+    async def complete_with_image(
+        self,
+        messages: list[LLMMessage],
+        image_b64: str,
+        image_media_type: str = "image/jpeg",
+        temperature: float = 0.3,
+        max_tokens: int = 1024,
+    ) -> LLMResponse:
+        if not self.api_key:
+            raise RuntimeError("OpenAI API key not set. Set OPENAI_API_KEY or pass api_key.")
+
+        # Build the vision message: image first, then the text prompt from the last user message
+        text_content = next((m.content for m in reversed(messages) if m.role == "user"), "")
+        vision_message = {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{image_media_type};base64,{image_b64}",
+                    },
+                },
+                {
+                    "type": "text",
+                    "text": text_content,
+                },
+            ],
+        }
+
+        # Include any system / prior assistant turns, replacing the last user turn
+        prior = [{"role": m.role, "content": m.content} for m in messages if m.role != "user"]
+
+        payload = {
+            "model": self.model,
+            "messages": prior + [vision_message],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
+        url = f"{self.base_url}/chat/completions"
+        logger.debug("OpenAI vision request to %s (model=%s)", url, self.model)
+
+        response = await self._client.post(url, json=payload)
+        response.raise_for_status()
+        data = response.json()
+
+        choice = data["choices"][0]["message"]["content"]
+        usage = data.get("usage", {})
+
+        from .base import LLMResponse  # local import avoids circular at module level
+
+        return LLMResponse(
+            content=choice,
+            model=self.model,
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+        )
+
     async def complete(
         self,
         messages: list[LLMMessage],

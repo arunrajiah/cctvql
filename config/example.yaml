@@ -59,8 +59,19 @@ adapters:
       username: admin
       password: ""
 
-    # You can add multiple systems — contribute your adapter to the repo!
-    # hikvision:
-    #   type: hikvision
-    #   host: 192.168.1.250
-    #   ...
+    # Option 3: Hikvision NVR (ISAPI)
+    hikvision:
+      type: hikvision
+      host: http://192.168.1.64
+      username: admin
+      password: ""
+      channel_count: 8   # optional, auto-detected if omitted
+
+    # Option 4: Dahua NVR (CGI)
+    dahua:
+      type: dahua
+      host: 192.168.1.108
+      port: 80
+      username: admin
+      password: ""
+      channel_count: 4
