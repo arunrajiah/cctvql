@@ -47,6 +47,59 @@ class OllamaBackend(BaseLLM):
     def name(self) -> str:
         return "ollama"
 
+    @property
+    def supports_vision(self) -> bool:
+        """True for Ollama — assumes a vision-capable model (llava, bakllava, moondream, etc.)."""
+        return True
+
+    async def complete_with_image(
+        self,
+        messages: list[LLMMessage],
+        image_b64: str,
+        image_media_type: str = "image/jpeg",
+        temperature: float = 0.3,
+        max_tokens: int = 1024,
+    ) -> LLMResponse:
+        """
+        Send messages with an inline base64 image via Ollama's /api/chat endpoint.
+        The ``images`` field accepts a list of base64 strings alongside the message.
+        Requires a vision-capable model such as llava, bakllava, or moondream.
+        """
+        ollama_messages = [{"role": m.role, "content": m.content} for m in messages]
+
+        # Attach image to the last user message (Ollama API convention)
+        for msg in reversed(ollama_messages):
+            if msg["role"] == "user":
+                msg["images"] = [image_b64]
+                break
+
+        payload = {
+            "model": self.model,
+            "messages": ollama_messages,
+            "stream": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+            },
+        }
+        url = f"{self.host}/api/chat"
+        logger.debug("Ollama vision request to %s (model=%s)", url, self.model)
+
+        response = await self._client.post(url, json=payload)
+        response.raise_for_status()
+        data = response.json()
+
+        content = data.get("message", {}).get("content", "")
+
+        from .base import LLMResponse  # local import avoids circular at module level
+
+        return LLMResponse(
+            content=content,
+            model=self.model,
+            prompt_tokens=data.get("prompt_eval_count"),
+            completion_tokens=data.get("eval_count"),
+        )
+
     async def complete(
         self,
         messages: list[LLMMessage],

@@ -196,6 +196,7 @@ class QueryContext:
     end_time: datetime | None = None
     limit: int = 20
     raw_query: str = ""
+    event_id: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
 

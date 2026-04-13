@@ -334,7 +334,7 @@ Frigate 0.12+ is tested. Most features work with 0.9+.
 Yes. ONVIF Profile S is supported for live streaming and snapshots. Profile G adds recording/clip support.
 
 **Can I query multiple camera systems at once?**
-Multi-system querying is on the roadmap. For now, one active adapter at a time.
+Yes — use `"multi": true` in your query request to fan out across all registered adapters simultaneously.
 
 **Is there a Home Assistant integration?**
 A native Home Assistant custom integration is planned. For now, use the REST API endpoint from HA automations.
@@ -343,14 +343,20 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 
 ## Roadmap
 
-- [ ] Vision analysis — pass event snapshots to multimodal LLMs for rich descriptions
+- [x] Vision analysis — pass event snapshots to multimodal LLMs for rich descriptions
+- [x] Hikvision adapter
+- [x] Dahua adapter
+- [x] Web UI (lightweight chat interface)
+- [x] Multi-system queries (query across multiple NVRs simultaneously)
+- [x] Alert rules via natural language ("notify me when a person enters Zone A after 10pm")
+- [x] Voice interface (Whisper STT + TTS output)
 - [ ] Home Assistant custom integration
-- [ ] Hikvision adapter
-- [ ] Dahua adapter
-- [ ] Web UI (lightweight chat interface)
-- [ ] Multi-system queries (query across multiple NVRs)
-- [ ] Alert rules via natural language ("notify me when a person enters Zone A after 10pm")
-- [ ] Voice interface (Whisper STT + TTS output)
+- [ ] ONVIF discovery — auto-detect cameras on the local network
+- [ ] Event timeline UI — visual timeline of events across all cameras
+- [ ] Face recognition — identify known individuals across camera feeds
+- [ ] Anomaly detection — flag unusual activity patterns automatically
+- [ ] Multi-tenant support — per-user camera permissions and isolated sessions
+- [ ] Mobile app (React Native)
 
 ---
 

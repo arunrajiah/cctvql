@@ -152,6 +152,25 @@ def _create_adapter(adapter_type: str, cfg: dict):
         from cctvql.adapters.demo import DemoAdapter
 
         return DemoAdapter()
+    elif adapter_type == "hikvision":
+        from cctvql.adapters.hikvision import HikvisionAdapter
+
+        return HikvisionAdapter(
+            host=cfg.get("host", "192.168.1.100"),
+            username=cfg.get("username", "admin"),
+            password=cfg.get("password", ""),
+            channel_count=cfg.get("channel_count"),
+        )
+    elif adapter_type == "dahua":
+        from cctvql.adapters.dahua import DahuaAdapter
+
+        return DahuaAdapter(
+            host=cfg.get("host", "192.168.1.100"),
+            port=cfg.get("port", 80),
+            username=cfg.get("username", "admin"),
+            password=cfg.get("password", ""),
+            channel_count=cfg.get("channel_count", 4),
+        )
     else:
         raise ValueError(f"Unknown adapter type: {adapter_type}")
 

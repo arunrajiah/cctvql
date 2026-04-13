@@ -61,6 +61,22 @@ class BaseLLM(ABC):
         """
         ...
 
+    @property
+    def supports_vision(self) -> bool:
+        """Return True if this backend supports image inputs."""
+        return False
+
+    async def complete_with_image(
+        self,
+        messages: list[LLMMessage],
+        image_b64: str,
+        image_media_type: str = "image/jpeg",
+        temperature: float = 0.3,
+        max_tokens: int = 1024,
+    ) -> LLMResponse:
+        """Send messages with an inline base64 image. Override for vision support."""
+        raise NotImplementedError(f"{self.name} does not support vision inputs.")
+
     async def health_check(self) -> bool:
         """Return True if the backend is reachable. Override for custom checks."""
         return True

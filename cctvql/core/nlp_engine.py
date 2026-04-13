@@ -31,14 +31,18 @@ You have access to these intents:
 - get_clips             → Fetch recorded clips (optional: camera_name, start_time, end_time)
 - get_snapshot          → Get a live snapshot (needs: camera_name)
 - get_system_info       → Get system health/storage info
-- describe_event        → Describe what happened in a specific event (needs: event_id)
-- set_alert             → Configure an alert/notification rule
+- describe_event        → AI vision analysis of a specific event (needs: event_id or camera_name)
+- analyze_snapshot      → Describe what is currently visible on a camera (needs: camera_name)
+- set_alert             → Create an alert rule (needs: label, camera_name or zone, schedule)
+- list_alerts           → Show configured alert rules
+- delete_alert          → Remove an alert rule (needs: alert_id or description)
 - unknown               → Query cannot be mapped to any intent
 
 Always respond with ONLY valid JSON in this format:
 {{
   "intent": "<intent_name>",
   "camera_name": "<name or null>",
+  "event_id": "<event_id or null>",
   "label": "<person|car|dog|etc or null>",
   "zone": "<zone_name or null>",
   "start_time": "<ISO 8601 datetime or null>",
@@ -122,16 +126,21 @@ class NLPEngine:
 
     def _build_context(self, data: dict, raw_query: str, now: datetime) -> QueryContext:
         """Convert parsed JSON dict into a QueryContext."""
+        event_id = data.get("event_id")
         return QueryContext(
             intent=data.get("intent", "unknown"),
             camera_name=data.get("camera_name"),
+            event_id=event_id,
             label=data.get("label"),
             zone=data.get("zone"),
             start_time=self._parse_dt(data.get("start_time"), now),
             end_time=self._parse_dt(data.get("end_time"), now),
             limit=int(data.get("limit", 20)),
             raw_query=raw_query,
-            extra={"explanation": data.get("explanation", "")},
+            extra={
+                "explanation": data.get("explanation", ""),
+                "event_id": event_id,
+            },
         )
 
     @staticmethod
