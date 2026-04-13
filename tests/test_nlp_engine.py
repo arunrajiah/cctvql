@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from cctvql.core.nlp_engine import NLPEngine
-from cctvql.core.schema import QueryContext
 from cctvql.llm.base import LLMResponse
 
 
@@ -45,7 +44,7 @@ async def test_parse_get_events_with_label():
 @pytest.mark.asyncio
 async def test_parse_with_markdown_json():
     """LLM sometimes wraps JSON in markdown code blocks."""
-    response = '```json\n{"intent": "get_system_info", "limit": 20, "explanation": "system info"}\n```'
+    response = '```json\n{"intent": "get_system_info", "limit": 20, "explanation": "system info"}\n```'  # noqa: E501
     llm = make_mock_llm(response)
     engine = NLPEngine(llm)
     ctx = await engine.parse("How is the system doing?")

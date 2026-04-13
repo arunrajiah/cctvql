@@ -1,7 +1,16 @@
 from .schema import (
-    Camera, CameraStatus, Event, EventType, Clip, Zone,
-    DetectedObject, BoundingBox, SystemInfo,
-    QueryContext, QueryResult, ObjectLabel,
+    BoundingBox,
+    Camera,
+    CameraStatus,
+    Clip,
+    DetectedObject,
+    Event,
+    EventType,
+    ObjectLabel,
+    QueryContext,
+    QueryResult,
+    SystemInfo,
+    Zone,
 )
 
 __all__ = [

@@ -14,17 +14,24 @@ Supports:
 
 from __future__ import annotations
 
-import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 
 import httpx
 
 from cctvql.adapters.base import BaseAdapter
 from cctvql.core.schema import (
-    BoundingBox, Camera, CameraStatus, Clip, DetectedObject,
-    Event, EventType, SystemInfo, Zone,
+    BoundingBox,
+    Camera,
+    CameraStatus,
+    Clip,
+    DetectedObject,
+    Event,
+    EventType,
+    SystemInfo,
+    Zone,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,7 +56,7 @@ class FrigateAdapter(BaseAdapter):
     def __init__(
         self,
         host: str = "http://localhost:5000",
-        mqtt_host: Optional[str] = None,
+        mqtt_host: str | None = None,
         mqtt_port: int = 1883,
         mqtt_topic_prefix: str = "frigate",
         api_timeout: float = 30.0,
@@ -105,7 +112,9 @@ class FrigateAdapter(BaseAdapter):
         cameras: list[Camera] = []
         for cam_name, cam_cfg in cameras_cfg.items():
             cam_stats = stats.get("cameras", {}).get(cam_name, {})
-            status = CameraStatus.ONLINE if cam_stats.get("camera_fps", 0) > 0 else CameraStatus.OFFLINE
+            status = (
+                CameraStatus.ONLINE if cam_stats.get("camera_fps", 0) > 0 else CameraStatus.OFFLINE
+            )
             zones = list(cam_cfg.get("zones", {}).keys())
 
             cameras.append(Camera(
@@ -121,9 +130,9 @@ class FrigateAdapter(BaseAdapter):
 
     async def get_camera(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-    ) -> Optional[Camera]:
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+    ) -> Camera | None:
         name = camera_name or camera_id
         cameras = await self.list_cameras()
         for cam in cameras:
@@ -137,12 +146,12 @@ class FrigateAdapter(BaseAdapter):
 
     async def get_events(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-        label: Optional[str] = None,
-        zone: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+        label: str | None = None,
+        zone: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 20,
     ) -> list[Event]:
         params: dict[str, Any] = {"limit": limit}
@@ -162,7 +171,7 @@ class FrigateAdapter(BaseAdapter):
         data = await self._get("/api/events", params=params)
         return [self._parse_event(e) for e in data]
 
-    async def get_event(self, event_id: str) -> Optional[Event]:
+    async def get_event(self, event_id: str) -> Event | None:
         try:
             data = await self._get(f"/api/events/{event_id}")
             return self._parse_event(data)
@@ -175,10 +184,10 @@ class FrigateAdapter(BaseAdapter):
 
     async def get_clips(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 20,
     ) -> list[Clip]:
         # Frigate exposes clips via events with has_clip=1
@@ -213,9 +222,9 @@ class FrigateAdapter(BaseAdapter):
 
     async def get_snapshot_url(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-    ) -> Optional[str]:
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+    ) -> str | None:
         name = camera_name or camera_id
         if not name:
             return None
@@ -225,7 +234,7 @@ class FrigateAdapter(BaseAdapter):
     # System info
     # ------------------------------------------------------------------
 
-    async def get_system_info(self) -> Optional[SystemInfo]:
+    async def get_system_info(self) -> SystemInfo | None:
         try:
             version_data = await self._get("/api/version")
             stats = await self._get_stats()
@@ -252,7 +261,7 @@ class FrigateAdapter(BaseAdapter):
     # Zones
     # ------------------------------------------------------------------
 
-    async def list_zones(self, camera_id: Optional[str] = None) -> list[Zone]:
+    async def list_zones(self, camera_id: str | None = None) -> list[Zone]:
         config = await self._get("/api/config")
         zones = []
         for cam_name, cam_cfg in config.get("cameras", {}).items():
@@ -313,7 +322,7 @@ class FrigateAdapter(BaseAdapter):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    async def _get(self, path: str, params: Optional[dict] = None) -> Any:
+    async def _get(self, path: str, params: dict | None = None) -> Any:
         r = await self._client.get(f"{self.host}{path}", params=params)
         r.raise_for_status()
         return r.json()
@@ -361,13 +370,17 @@ class FrigateAdapter(BaseAdapter):
             objects=objects,
             zones=zones if isinstance(zones, list) else [],
             snapshot_url=f"{self.host}/api/events/{event_id}/snapshot.jpg" if event_id else None,
-            clip_url=f"{self.host}/api/events/{event_id}/clip.mp4" if event_id and data.get("has_clip") else None,
+            clip_url=(
+                f"{self.host}/api/events/{event_id}/clip.mp4"
+                if event_id and data.get("has_clip")
+                else None
+            ),
             thumbnail_url=f"{self.host}/api/events/{event_id}/thumbnail.jpg" if event_id else None,
             metadata={"has_clip": data.get("has_clip", False)},
         )
 
     @staticmethod
-    def _parse_coords(coords_str: str) -> Optional[list[tuple[float, float]]]:
+    def _parse_coords(coords_str: str) -> list[tuple[float, float]] | None:
         """Parse Frigate zone coordinates string '0.1,0.2,0.3,0.4,...' into point pairs."""
         if not coords_str:
             return None

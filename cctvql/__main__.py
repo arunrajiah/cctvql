@@ -6,7 +6,6 @@ Run as: python -m cctvql  or  cctvql  (after pip install)
 from __future__ import annotations
 
 import argparse
-import asyncio
 import sys
 
 

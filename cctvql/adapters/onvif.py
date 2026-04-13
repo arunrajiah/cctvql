@@ -18,13 +18,16 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
-from urllib.parse import urlparse
+from typing import Any
 
 from cctvql.adapters.base import BaseAdapter
 from cctvql.core.schema import (
-    Camera, CameraStatus, Clip, Event, EventType,
-    SystemInfo, Zone,
+    Camera,
+    CameraStatus,
+    Clip,
+    Event,
+    EventType,
+    SystemInfo,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,7 +55,7 @@ class ONVIFAdapter(BaseAdapter):
         port: int = 80,
         username: str = "admin",
         password: str = "",
-        wsdl_dir: Optional[str] = None,
+        wsdl_dir: str | None = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -74,8 +77,9 @@ class ONVIFAdapter(BaseAdapter):
 
     async def connect(self) -> bool:
         try:
-            from onvif import ONVIFCamera
             import asyncio
+
+            from onvif import ONVIFCamera
 
             kwargs: dict = dict(
                 host=self.host,
@@ -151,9 +155,9 @@ class ONVIFAdapter(BaseAdapter):
 
     async def get_camera(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-    ) -> Optional[Camera]:
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+    ) -> Camera | None:
         cameras = await self.list_cameras()
         for cam in cameras:
             if camera_id and cam.id == camera_id:
@@ -168,12 +172,12 @@ class ONVIFAdapter(BaseAdapter):
 
     async def get_events(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-        label: Optional[str] = None,
-        zone: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+        label: str | None = None,
+        zone: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 20,
     ) -> list[Event]:
         """
@@ -188,7 +192,7 @@ class ONVIFAdapter(BaseAdapter):
             event_service = await loop.run_in_executor(
                 None, self._camera.create_events_service
             )
-            sub_mgr = await loop.run_in_executor(
+            await loop.run_in_executor(
                 None, event_service.CreatePullPointSubscription,
                 {"InitialTerminationTime": "PT1M"},
             )
@@ -214,7 +218,7 @@ class ONVIFAdapter(BaseAdapter):
             logger.warning("ONVIF event pull failed: %s", exc)
             return []
 
-    async def get_event(self, event_id: str) -> Optional[Event]:
+    async def get_event(self, event_id: str) -> Event | None:
         # ONVIF doesn't have a single-event lookup — not universally supported
         return None
 
@@ -224,10 +228,10 @@ class ONVIFAdapter(BaseAdapter):
 
     async def get_clips(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 20,
     ) -> list[Clip]:
         """
@@ -274,9 +278,9 @@ class ONVIFAdapter(BaseAdapter):
 
     async def get_snapshot_url(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-    ) -> Optional[str]:
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+    ) -> str | None:
         cam = await self.get_camera(camera_id=camera_id, camera_name=camera_name)
         if cam:
             return cam.snapshot_url
@@ -288,7 +292,7 @@ class ONVIFAdapter(BaseAdapter):
     # System info
     # ------------------------------------------------------------------
 
-    async def get_system_info(self) -> Optional[SystemInfo]:
+    async def get_system_info(self) -> SystemInfo | None:
         try:
             import asyncio
             loop = asyncio.get_event_loop()
@@ -296,7 +300,9 @@ class ONVIFAdapter(BaseAdapter):
                 None, self._device_service.GetDeviceInformation
             )
             return SystemInfo(
-                system_name=f"{getattr(info, 'Manufacturer', 'ONVIF')} {getattr(info, 'Model', 'Device')}",
+                system_name=(
+                    f"{getattr(info, 'Manufacturer', 'ONVIF')} {getattr(info, 'Model', 'Device')}"
+                ),
                 version=getattr(info, "FirmwareVersion", None),
                 camera_count=len(self._profiles),
                 metadata={
@@ -312,7 +318,7 @@ class ONVIFAdapter(BaseAdapter):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    async def _get_snapshot_url_for_token(self, token: str) -> Optional[str]:
+    async def _get_snapshot_url_for_token(self, token: str) -> str | None:
         try:
             import asyncio
             loop = asyncio.get_event_loop()
@@ -324,7 +330,7 @@ class ONVIFAdapter(BaseAdapter):
         except Exception:
             return None
 
-    async def _get_stream_url_for_token(self, token: str) -> Optional[str]:
+    async def _get_stream_url_for_token(self, token: str) -> str | None:
         try:
             import asyncio
             loop = asyncio.get_event_loop()

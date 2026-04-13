@@ -10,8 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 
 from cctvql.core.schema import QueryContext
 from cctvql.llm.base import BaseLLM, LLMMessage
@@ -28,7 +27,7 @@ Your job is to understand natural language queries and convert them into structu
 You have access to these intents:
 - list_cameras          → List all cameras
 - get_camera            → Info about a specific camera (needs: camera_name or camera_id)
-- get_events            → Fetch detection/motion events (optional: camera_name, label, start_time, end_time, zone, limit)
+- get_events            → Fetch events (optional: camera_name, label, start/end_time, zone, limit)
 - get_clips             → Fetch recorded clips (optional: camera_name, start_time, end_time)
 - get_snapshot          → Get a live snapshot (needs: camera_name)
 - get_system_info       → Get system health/storage info
@@ -136,7 +135,7 @@ class NLPEngine:
         )
 
     @staticmethod
-    def _parse_dt(value: Optional[str], now: datetime) -> Optional[datetime]:
+    def _parse_dt(value: str | None, now: datetime) -> datetime | None:
         if not value:
             return None
         try:

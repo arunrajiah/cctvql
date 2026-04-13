@@ -2,11 +2,15 @@
 
 from datetime import datetime
 
-import pytest
-
 from cctvql.core.schema import (
-    BoundingBox, Camera, CameraStatus, Clip, DetectedObject,
-    Event, EventType, QueryContext, QueryResult,
+    BoundingBox,
+    Camera,
+    CameraStatus,
+    Clip,
+    DetectedObject,
+    Event,
+    EventType,
+    QueryContext,
 )
 
 

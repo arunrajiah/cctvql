@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional
 
 from cctvql.core.schema import Camera, Clip, Event, SystemInfo, Zone
 
@@ -54,21 +53,21 @@ class BaseAdapter(ABC):
     @abstractmethod
     async def get_camera(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-    ) -> Optional[Camera]:
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+    ) -> Camera | None:
         """Retrieve a single camera by id or name."""
         ...
 
     @abstractmethod
     async def get_events(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-        label: Optional[str] = None,
-        zone: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+        label: str | None = None,
+        zone: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 20,
     ) -> list[Event]:
         """
@@ -79,17 +78,17 @@ class BaseAdapter(ABC):
         ...
 
     @abstractmethod
-    async def get_event(self, event_id: str) -> Optional[Event]:
+    async def get_event(self, event_id: str) -> Event | None:
         """Retrieve a single event by its ID."""
         ...
 
     @abstractmethod
     async def get_clips(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 20,
     ) -> list[Clip]:
         """Fetch recorded video clips."""
@@ -98,20 +97,20 @@ class BaseAdapter(ABC):
     @abstractmethod
     async def get_snapshot_url(
         self,
-        camera_id: Optional[str] = None,
-        camera_name: Optional[str] = None,
-    ) -> Optional[str]:
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+    ) -> str | None:
         """Return a URL to the latest snapshot for the given camera."""
         ...
 
     @abstractmethod
-    async def get_system_info(self) -> Optional[SystemInfo]:
+    async def get_system_info(self) -> SystemInfo | None:
         """Return high-level system health and storage info."""
         ...
 
     # Optional — adapters can override for richer functionality
 
-    async def list_zones(self, camera_id: Optional[str] = None) -> list[Zone]:
+    async def list_zones(self, camera_id: str | None = None) -> list[Zone]:
         """List configured zones/regions. Override for full support."""
         return []
 
@@ -124,7 +123,7 @@ class AdapterRegistry:
     """Maps adapter names to instances for multi-system setups."""
 
     _adapters: dict[str, BaseAdapter] = {}
-    _active: Optional[str] = None
+    _active: str | None = None
 
     @classmethod
     def register(cls, adapter: BaseAdapter) -> None:
