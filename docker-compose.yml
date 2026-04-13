@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  cctvql:
+    build: .
+    container_name: cctvql
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config/config.yaml:/app/config/config.yaml:ro
+    environment:
+      # Uncomment and set if using cloud LLM backends
+      # OPENAI_API_KEY: ""
+      # ANTHROPIC_API_KEY: ""
+    networks:
+      - cctvql-net
+
+  # Optional: Ollama for local LLM (remove if using OpenAI/Anthropic)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - cctvql-net
+    # Uncomment for GPU support:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  ollama_data:
+
+networks:
+  cctvql-net:
+    driver: bridge
