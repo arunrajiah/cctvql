@@ -1,0 +1,66 @@
+# cctvQL Configuration
+# Copy this file to config/config.yaml and customize for your setup.
+# -------------------------------------------------------------------
+
+logging:
+  level: INFO   # DEBUG | INFO | WARNING | ERROR
+
+# ---------------------------------------------------------------------------
+# LLM Backends
+# ---------------------------------------------------------------------------
+llm:
+  active: ollama    # Which backend to use: ollama | openai | anthropic
+
+  backends:
+    # Option 1: Ollama (local, fully private — recommended)
+    ollama:
+      provider: ollama
+      host: http://localhost:11434
+      model: llama3         # or mistral, phi3, gemma2, etc.
+
+    # Option 2: OpenAI API
+    openai:
+      provider: openai
+      model: gpt-4o-mini    # or gpt-4o for best accuracy
+      api_key: ""           # or set OPENAI_API_KEY env var
+
+    # Option 3: Anthropic API
+    anthropic:
+      provider: anthropic
+      model: claude-haiku-4-5-20251001
+      api_key: ""           # or set ANTHROPIC_API_KEY env var
+
+    # Option 4: Any OpenAI-compatible endpoint (LM Studio, Together AI, etc.)
+    lmstudio:
+      provider: openai
+      base_url: http://localhost:1234/v1
+      model: local-model
+      api_key: lm-studio    # required but can be anything
+
+# ---------------------------------------------------------------------------
+# CCTV Adapters
+# ---------------------------------------------------------------------------
+adapters:
+  active: frigate   # Which adapter to use: frigate | onvif
+
+  systems:
+    # Option 1: Frigate NVR
+    frigate:
+      type: frigate
+      host: http://192.168.1.100:5000    # Frigate URL
+      mqtt_host: 192.168.1.100           # Optional: MQTT broker for real-time events
+      mqtt_port: 1883
+
+    # Option 2: ONVIF device (any ONVIF-compatible camera/NVR)
+    onvif:
+      type: onvif
+      host: 192.168.1.200
+      port: 80
+      username: admin
+      password: ""
+
+    # You can add multiple systems — contribute your adapter to the repo!
+    # hikvision:
+    #   type: hikvision
+    #   host: 192.168.1.250
+    #   ...
