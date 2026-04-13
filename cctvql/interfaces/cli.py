@@ -126,6 +126,7 @@ class CLIChat:
                 break
 
             if query.lower() == "reset":
+                assert self._nlp is not None
                 self._nlp.reset()
                 print("[cctvQL] Conversation history cleared.")
                 continue
@@ -139,6 +140,8 @@ class CLIChat:
     async def _process(self, query: str) -> None:
         print("cctvQL > ", end="", flush=True)
         try:
+            assert self._nlp is not None
+            assert self._router is not None
             ctx = await self._nlp.parse(query)
 
             if self.verbose:

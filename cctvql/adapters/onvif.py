@@ -62,7 +62,7 @@ class ONVIFAdapter(BaseAdapter):
         self.username = username
         self.password = password
         self.wsdl_dir = wsdl_dir
-        self._camera: Any = None          # onvif.ONVIFCamera
+        self._camera: Any = None  # onvif.ONVIFCamera
         self._media_service: Any = None
         self._device_service: Any = None
         self._profiles: list[Any] = []
@@ -92,9 +92,7 @@ class ONVIFAdapter(BaseAdapter):
 
             # onvif-zeep is partially sync; run in executor for async compat
             loop = asyncio.get_event_loop()
-            self._camera = await loop.run_in_executor(
-                None, lambda: ONVIFCamera(**kwargs)
-            )
+            self._camera = await loop.run_in_executor(None, lambda: ONVIFCamera(**kwargs))
 
             self._media_service = await loop.run_in_executor(
                 None, self._camera.create_media_service
@@ -103,20 +101,18 @@ class ONVIFAdapter(BaseAdapter):
                 None, self._camera.create_devicemgmt_service
             )
 
-            self._profiles = await loop.run_in_executor(
-                None, self._media_service.GetProfiles
-            )
+            self._profiles = await loop.run_in_executor(None, self._media_service.GetProfiles)
 
             logger.info(
                 "Connected to ONVIF device at %s:%d (%d profiles)",
-                self.host, self.port, len(self._profiles),
+                self.host,
+                self.port,
+                len(self._profiles),
             )
             return True
 
         except ImportError:
-            logger.error(
-                "onvif-zeep not installed. Run: pip install onvif-zeep"
-            )
+            logger.error("onvif-zeep not installed. Run: pip install onvif-zeep")
             return False
         except Exception as exc:
             logger.error("ONVIF connect failed: %s", exc)
@@ -143,14 +139,16 @@ class ONVIFAdapter(BaseAdapter):
             snapshot_url = await self._get_snapshot_url_for_token(token)
             stream_url = await self._get_stream_url_for_token(token)
 
-            cameras.append(Camera(
-                id=token,
-                name=name,
-                status=CameraStatus.ONLINE,
-                snapshot_url=snapshot_url,
-                stream_url=stream_url,
-                metadata={"profile_token": token, "source": "onvif"},
-            ))
+            cameras.append(
+                Camera(
+                    id=token,
+                    name=name,
+                    status=CameraStatus.ONLINE,
+                    snapshot_url=snapshot_url,
+                    stream_url=stream_url,
+                    metadata={"profile_token": token, "source": "onvif"},
+                )
+            )
         return cameras
 
     async def get_camera(
@@ -187,24 +185,24 @@ class ONVIFAdapter(BaseAdapter):
         """
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
 
-            event_service = await loop.run_in_executor(
-                None, self._camera.create_events_service
-            )
+            event_service = await loop.run_in_executor(None, self._camera.create_events_service)
             await loop.run_in_executor(
-                None, event_service.CreatePullPointSubscription,
+                None,
+                event_service.CreatePullPointSubscription,
                 {"InitialTerminationTime": "PT1M"},
             )
-            pull_service = await loop.run_in_executor(
-                None, self._camera.create_pullpoint_service
-            )
+            pull_service = await loop.run_in_executor(None, self._camera.create_pullpoint_service)
             messages = await loop.run_in_executor(
                 None,
-                lambda: pull_service.PullMessages({
-                    "MessageLimit": limit,
-                    "Timeout": "PT5S",
-                })
+                lambda: pull_service.PullMessages(
+                    {
+                        "MessageLimit": limit,
+                        "Timeout": "PT5S",
+                    }
+                ),
             )
 
             events = []
@@ -240,10 +238,9 @@ class ONVIFAdapter(BaseAdapter):
         """
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
-            search_service = await loop.run_in_executor(
-                None, self._camera.create_recording_service
-            )
+            search_service = await loop.run_in_executor(None, self._camera.create_recording_service)
             now = datetime.now(timezone.utc)
             search_params = {
                 "SearchScope": {},
@@ -259,11 +256,13 @@ class ONVIFAdapter(BaseAdapter):
             if token:
                 recordings = await loop.run_in_executor(
                     None,
-                    lambda: search_service.GetRecordingSearchResults({
-                        "SearchToken": token,
-                        "MaxResults": limit,
-                        "WaitTime": "PT5S",
-                    })
+                    lambda: search_service.GetRecordingSearchResults(
+                        {
+                            "SearchToken": token,
+                            "MaxResults": limit,
+                            "WaitTime": "PT5S",
+                        }
+                    ),
                 )
                 for rec in getattr(recordings, "RecordingInformation", []):
                     clips.append(self._parse_recording(rec))
@@ -295,10 +294,9 @@ class ONVIFAdapter(BaseAdapter):
     async def get_system_info(self) -> SystemInfo | None:
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
-            info = await loop.run_in_executor(
-                None, self._device_service.GetDeviceInformation
-            )
+            info = await loop.run_in_executor(None, self._device_service.GetDeviceInformation)
             return SystemInfo(
                 system_name=(
                     f"{getattr(info, 'Manufacturer', 'ONVIF')} {getattr(info, 'Model', 'Device')}"
@@ -321,10 +319,10 @@ class ONVIFAdapter(BaseAdapter):
     async def _get_snapshot_url_for_token(self, token: str) -> str | None:
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
             uri = await loop.run_in_executor(
-                None,
-                lambda: self._media_service.GetSnapshotUri({"ProfileToken": token})
+                None, lambda: self._media_service.GetSnapshotUri({"ProfileToken": token})
             )
             return getattr(uri, "Uri", None)
         except Exception:
@@ -333,16 +331,19 @@ class ONVIFAdapter(BaseAdapter):
     async def _get_stream_url_for_token(self, token: str) -> str | None:
         try:
             import asyncio
+
             loop = asyncio.get_event_loop()
             uri = await loop.run_in_executor(
                 None,
-                lambda: self._media_service.GetStreamUri({
-                    "StreamSetup": {
-                        "Stream": "RTP-Unicast",
-                        "Transport": {"Protocol": "RTSP"},
-                    },
-                    "ProfileToken": token,
-                })
+                lambda: self._media_service.GetStreamUri(
+                    {
+                        "StreamSetup": {
+                            "Stream": "RTP-Unicast",
+                            "Transport": {"Protocol": "RTSP"},
+                        },
+                        "ProfileToken": token,
+                    }
+                ),
             )
             return getattr(uri, "Uri", None)
         except Exception:

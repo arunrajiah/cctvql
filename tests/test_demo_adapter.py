@@ -1,6 +1,7 @@
 """
 Tests for the DemoAdapter (cctvql.adapters.demo).
 """
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -13,6 +14,7 @@ from cctvql.adapters.demo import _ANCHOR, DemoAdapter
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 async def adapter():
     a = DemoAdapter()
@@ -23,6 +25,7 @@ async def adapter():
 # ---------------------------------------------------------------------------
 # Connection lifecycle
 # ---------------------------------------------------------------------------
+
 
 async def test_connect_returns_true():
     adapter = DemoAdapter()
@@ -38,6 +41,7 @@ async def test_disconnect(adapter):
 # ---------------------------------------------------------------------------
 # Cameras
 # ---------------------------------------------------------------------------
+
 
 async def test_list_cameras_returns_four(adapter):
     cameras = await adapter.list_cameras()
@@ -62,6 +66,7 @@ async def test_get_camera_not_found(adapter):
 # ---------------------------------------------------------------------------
 # Events
 # ---------------------------------------------------------------------------
+
 
 async def test_get_events_no_filter(adapter):
     events = await adapter.get_events()
@@ -125,6 +130,7 @@ async def test_get_event_not_found(adapter):
 # Clips
 # ---------------------------------------------------------------------------
 
+
 async def test_get_clips(adapter):
     clips = await adapter.get_clips()
     assert len(clips) > 0
@@ -137,6 +143,7 @@ async def test_get_clips(adapter):
 # Snapshots
 # ---------------------------------------------------------------------------
 
+
 async def test_get_snapshot_url(adapter):
     url = await adapter.get_snapshot_url(camera_name="Front Door")
     assert url is not None
@@ -146,6 +153,7 @@ async def test_get_snapshot_url(adapter):
 # ---------------------------------------------------------------------------
 # System info
 # ---------------------------------------------------------------------------
+
 
 async def test_get_system_info(adapter):
     info = await adapter.get_system_info()
@@ -157,6 +165,7 @@ async def test_get_system_info(adapter):
 # ---------------------------------------------------------------------------
 # Zones
 # ---------------------------------------------------------------------------
+
 
 async def test_list_zones(adapter):
     zones = await adapter.list_zones()
@@ -172,6 +181,7 @@ async def test_list_zones(adapter):
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
+
 
 async def test_health_check(adapter):
     ok = await adapter.health_check()

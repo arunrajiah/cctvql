@@ -16,6 +16,7 @@ from typing import Any
 # Enumerations
 # ---------------------------------------------------------------------------
 
+
 class CameraStatus(str, Enum):
     ONLINE = "online"
     OFFLINE = "offline"
@@ -49,9 +50,11 @@ class EventType(str, Enum):
 # Core Models
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Camera:
     """Represents a single camera in the system."""
+
     id: str
     name: str
     status: CameraStatus = CameraStatus.UNKNOWN
@@ -68,6 +71,7 @@ class Camera:
 @dataclass
 class BoundingBox:
     """Normalized bounding box [0.0, 1.0] for detected objects."""
+
     x_min: float
     y_min: float
     x_max: float
@@ -77,6 +81,7 @@ class BoundingBox:
 @dataclass
 class DetectedObject:
     """A single object detected within an event frame."""
+
     label: str
     confidence: float
     bounding_box: BoundingBox | None = None
@@ -91,6 +96,7 @@ class Event:
     A detection or motion event from any CCTV system.
     Normalized across all adapters.
     """
+
     id: str
     camera_id: str
     camera_name: str
@@ -129,6 +135,7 @@ class Event:
 @dataclass
 class Clip:
     """A recorded video clip from a camera."""
+
     id: str
     camera_id: str
     camera_name: str
@@ -147,6 +154,7 @@ class Clip:
 @dataclass
 class Zone:
     """A named region or logical zone within a camera's view."""
+
     id: str
     name: str
     camera_id: str
@@ -157,6 +165,7 @@ class Zone:
 @dataclass
 class SystemInfo:
     """High-level info about the connected CCTV system."""
+
     system_name: str
     version: str | None = None
     camera_count: int = 0
@@ -170,13 +179,15 @@ class SystemInfo:
 # Query / Response wrappers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class QueryContext:
     """
     Parsed intent from a natural language query,
     handed off from the NLP engine to the query router.
     """
-    intent: str                          # e.g. "get_events", "list_cameras"
+
+    intent: str  # e.g. "get_events", "list_cameras"
     camera_id: str | None = None
     camera_name: str | None = None
     label: str | None = None
@@ -191,8 +202,9 @@ class QueryContext:
 @dataclass
 class QueryResult:
     """Structured result returned to the NLP engine after executing a query."""
+
     success: bool
     intent: str
-    data: Any = None                    # list[Event] | list[Camera] | etc.
+    data: Any = None  # list[Event] | list[Camera] | etc.
     error: str | None = None
-    summary: str | None = None      # Pre-formatted human-readable summary
+    summary: str | None = None  # Pre-formatted human-readable summary

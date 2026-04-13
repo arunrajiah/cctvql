@@ -1,6 +1,7 @@
 """
 Tests for the bootstrap module (cctvql._bootstrap).
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +22,7 @@ from cctvql.llm.base import LLMRegistry
 # Ensure clean registries for every test
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def clean_registries():
     AdapterRegistry._adapters = {}
@@ -37,6 +39,7 @@ def clean_registries():
 # ---------------------------------------------------------------------------
 # bootstrap()
 # ---------------------------------------------------------------------------
+
 
 def test_bootstrap_defaults(tmp_path):
     """When no config file exists, bootstrap should register defaults."""
@@ -84,6 +87,7 @@ def test_bootstrap_with_config(tmp_path):
 # _setup_logging
 # ---------------------------------------------------------------------------
 
+
 def test_setup_logging():
     _setup_logging({"level": "WARNING"})
     root_logger = logging.getLogger()
@@ -96,6 +100,7 @@ def test_setup_logging():
 # ---------------------------------------------------------------------------
 # _create_llm
 # ---------------------------------------------------------------------------
+
 
 def test_create_llm_ollama():
     backend = _create_llm("ollama", {"host": "http://localhost:11434", "model": "llama3"})
@@ -111,7 +116,9 @@ def test_create_llm_openai():
 
 
 def test_create_llm_anthropic():
-    backend = _create_llm("anthropic", {"api_key": "ant-test", "model": "claude-haiku-4-5-20251001"})  # noqa: E501
+    backend = _create_llm(
+        "anthropic", {"api_key": "ant-test", "model": "claude-haiku-4-5-20251001"}
+    )  # noqa: E501
     assert backend.name == "anthropic"
     assert backend.model == "claude-haiku-4-5-20251001"
     assert backend.api_key == "ant-test"
@@ -121,6 +128,7 @@ def test_create_llm_anthropic():
 # _create_adapter
 # ---------------------------------------------------------------------------
 
+
 def test_create_adapter_frigate():
     adapter = _create_adapter("frigate", {"host": "http://192.168.1.100:5000"})
     assert adapter.name == "frigate"
@@ -128,12 +136,15 @@ def test_create_adapter_frigate():
 
 
 def test_create_adapter_onvif():
-    adapter = _create_adapter("onvif", {
-        "host": "192.168.1.200",
-        "port": 80,
-        "username": "admin",
-        "password": "pass123",
-    })
+    adapter = _create_adapter(
+        "onvif",
+        {
+            "host": "192.168.1.200",
+            "port": 80,
+            "username": "admin",
+            "password": "pass123",
+        },
+    )
     assert adapter.name == "onvif"
 
 

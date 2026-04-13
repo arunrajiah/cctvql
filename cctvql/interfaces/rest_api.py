@@ -95,6 +95,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 # App setup
 # ---------------------------------------------------------------------------
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     adapter = AdapterRegistry.get_active()
@@ -129,6 +130,7 @@ _router: QueryRouter | None = None
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
+
 
 class QueryRequest(BaseModel):
     query: str
@@ -179,9 +181,7 @@ async def _broadcast_event(event: Event) -> None:
         "type": event.event_type.value,
         "start_time": event.start_time.isoformat(),
         "end_time": event.end_time.isoformat() if event.end_time else None,
-        "objects": [
-            {"label": o.label, "confidence": o.confidence} for o in event.objects
-        ],
+        "objects": [{"label": o.label, "confidence": o.confidence} for o in event.objects],
         "zones": event.zones,
         "snapshot_url": event.snapshot_url,
         "clip_url": event.clip_url,
@@ -215,6 +215,7 @@ async def websocket_events(websocket: WebSocket) -> None:
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @app.post("/query", response_model=QueryResponse)
 async def query(req: QueryRequest) -> QueryResponse:
@@ -329,6 +330,7 @@ async def clear_session(session_id: str) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 # Prometheus-compatible metrics
 # ---------------------------------------------------------------------------
+
 
 @app.get("/metrics", response_class=PlainTextResponse)
 async def metrics() -> PlainTextResponse:

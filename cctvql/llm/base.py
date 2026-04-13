@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 @dataclass
 class LLMMessage:
-    role: str    # "system" | "user" | "assistant"
+    role: str  # "system" | "user" | "assistant"
     content: str
 
 

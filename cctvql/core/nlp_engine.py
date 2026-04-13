@@ -109,7 +109,7 @@ class NLPEngine:
 
         except Exception as exc:
             logger.error("NLP parsing failed: %s", exc)
-            self._history.pop()   # remove failed user turn
+            self._history.pop()  # remove failed user turn
             return QueryContext(intent="unknown", raw_query=user_query)
 
     def _extract_json(self, text: str) -> dict:

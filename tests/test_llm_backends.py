@@ -1,6 +1,7 @@
 """
 Tests for all three LLM backends with mocked HTTP.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -15,6 +16,7 @@ from cctvql.llm.openai_backend import OpenAIBackend
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_response(json_data: dict, status_code: int = 200):
     """Create a mock httpx response object."""
@@ -34,19 +36,21 @@ SAMPLE_MESSAGES = [LLMMessage(role="user", content="Hello")]
 # OllamaBackend
 # ===========================================================================
 
-class TestOllamaBackend:
 
+class TestOllamaBackend:
     def test_name(self):
         backend = OllamaBackend()
         assert backend.name == "ollama"
 
     async def test_complete_success(self):
         backend = OllamaBackend()
-        mock_resp = _mock_response({
-            "message": {"content": "Hi there!"},
-            "prompt_eval_count": 10,
-            "eval_count": 5,
-        })
+        mock_resp = _mock_response(
+            {
+                "message": {"content": "Hi there!"},
+                "prompt_eval_count": 10,
+                "eval_count": 5,
+            }
+        )
         backend._client.post = AsyncMock(return_value=mock_resp)
 
         result = await backend.complete(SAMPLE_MESSAGES)
@@ -83,18 +87,20 @@ class TestOllamaBackend:
 # OpenAIBackend
 # ===========================================================================
 
-class TestOpenAIBackend:
 
+class TestOpenAIBackend:
     def test_name(self):
         backend = OpenAIBackend(api_key="test-key")
         assert backend.name == "openai"
 
     async def test_complete_success(self):
         backend = OpenAIBackend(api_key="test-key")
-        mock_resp = _mock_response({
-            "choices": [{"message": {"content": "OpenAI says hello"}}],
-            "usage": {"prompt_tokens": 15, "completion_tokens": 8},
-        })
+        mock_resp = _mock_response(
+            {
+                "choices": [{"message": {"content": "OpenAI says hello"}}],
+                "usage": {"prompt_tokens": 15, "completion_tokens": 8},
+            }
+        )
         backend._client.post = AsyncMock(return_value=mock_resp)
 
         result = await backend.complete(SAMPLE_MESSAGES)
@@ -136,18 +142,20 @@ class TestOpenAIBackend:
 # AnthropicBackend
 # ===========================================================================
 
-class TestAnthropicBackend:
 
+class TestAnthropicBackend:
     def test_name(self):
         backend = AnthropicBackend(api_key="test-key")
         assert backend.name == "anthropic"
 
     async def test_complete_success(self):
         backend = AnthropicBackend(api_key="test-key")
-        mock_resp = _mock_response({
-            "content": [{"text": "Claude says hello"}],
-            "usage": {"input_tokens": 20, "output_tokens": 10},
-        })
+        mock_resp = _mock_response(
+            {
+                "content": [{"text": "Claude says hello"}],
+                "usage": {"input_tokens": 20, "output_tokens": 10},
+            }
+        )
         backend._client.post = AsyncMock(return_value=mock_resp)
 
         result = await backend.complete(SAMPLE_MESSAGES)
@@ -158,10 +166,12 @@ class TestAnthropicBackend:
 
     async def test_complete_with_system_message(self):
         backend = AnthropicBackend(api_key="test-key")
-        mock_resp = _mock_response({
-            "content": [{"text": "response with system"}],
-            "usage": {"input_tokens": 25, "output_tokens": 12},
-        })
+        mock_resp = _mock_response(
+            {
+                "content": [{"text": "response with system"}],
+                "usage": {"input_tokens": 25, "output_tokens": 12},
+            }
+        )
         backend._client.post = AsyncMock(return_value=mock_resp)
 
         messages = [
