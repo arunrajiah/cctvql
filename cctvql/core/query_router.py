@@ -8,11 +8,11 @@ then formats the result into a human-readable response.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from cctvql.adapters.base import BaseAdapter
 from cctvql.core.schema import (
-    Camera, Clip, Event, QueryContext, QueryResult, SystemInfo,
+    QueryContext,
+    QueryResult,
 )
 from cctvql.llm.base import BaseLLM, LLMMessage
 

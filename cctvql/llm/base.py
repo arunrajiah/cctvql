@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -22,8 +21,8 @@ class LLMMessage:
 class LLMResponse:
     content: str
     model: str
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
 
 
 class BaseLLM(ABC):
@@ -74,7 +73,7 @@ class LLMRegistry:
     """
 
     _backends: dict[str, BaseLLM] = {}
-    _active: Optional[str] = None
+    _active: str | None = None
 
     @classmethod
     def register(cls, backend: BaseLLM) -> None:

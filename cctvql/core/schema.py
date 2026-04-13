@@ -10,8 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Enumerations
@@ -56,9 +55,9 @@ class Camera:
     id: str
     name: str
     status: CameraStatus = CameraStatus.UNKNOWN
-    location: Optional[str] = None
-    snapshot_url: Optional[str] = None
-    stream_url: Optional[str] = None
+    location: str | None = None
+    snapshot_url: str | None = None
+    stream_url: str | None = None
     zones: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -80,7 +79,7 @@ class DetectedObject:
     """A single object detected within an event frame."""
     label: str
     confidence: float
-    bounding_box: Optional[BoundingBox] = None
+    bounding_box: BoundingBox | None = None
 
     def __str__(self) -> str:
         return f"{self.label} ({self.confidence:.0%})"
@@ -97,22 +96,22 @@ class Event:
     camera_name: str
     event_type: EventType
     start_time: datetime
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     objects: list[DetectedObject] = field(default_factory=list)
     zones: list[str] = field(default_factory=list)
-    snapshot_url: Optional[str] = None
-    clip_url: Optional[str] = None
-    thumbnail_url: Optional[str] = None
+    snapshot_url: str | None = None
+    clip_url: str | None = None
+    thumbnail_url: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         if self.end_time:
             return (self.end_time - self.start_time).total_seconds()
         return None
 
     @property
-    def primary_label(self) -> Optional[str]:
+    def primary_label(self) -> str | None:
         if self.objects:
             return max(self.objects, key=lambda o: o.confidence).label
         return None
@@ -135,9 +134,9 @@ class Clip:
     camera_name: str
     start_time: datetime
     end_time: datetime
-    download_url: Optional[str] = None
-    thumbnail_url: Optional[str] = None
-    size_bytes: Optional[int] = None
+    download_url: str | None = None
+    thumbnail_url: str | None = None
+    size_bytes: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -151,7 +150,7 @@ class Zone:
     id: str
     name: str
     camera_id: str
-    coordinates: Optional[list[tuple[float, float]]] = None
+    coordinates: list[tuple[float, float]] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -159,11 +158,11 @@ class Zone:
 class SystemInfo:
     """High-level info about the connected CCTV system."""
     system_name: str
-    version: Optional[str] = None
+    version: str | None = None
     camera_count: int = 0
-    uptime_seconds: Optional[int] = None
-    storage_used_bytes: Optional[int] = None
-    storage_total_bytes: Optional[int] = None
+    uptime_seconds: int | None = None
+    storage_used_bytes: int | None = None
+    storage_total_bytes: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -178,12 +177,12 @@ class QueryContext:
     handed off from the NLP engine to the query router.
     """
     intent: str                          # e.g. "get_events", "list_cameras"
-    camera_id: Optional[str] = None
-    camera_name: Optional[str] = None
-    label: Optional[str] = None
-    zone: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    camera_id: str | None = None
+    camera_name: str | None = None
+    label: str | None = None
+    zone: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
     limit: int = 20
     raw_query: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
@@ -195,5 +194,5 @@ class QueryResult:
     success: bool
     intent: str
     data: Any = None                    # list[Event] | list[Camera] | etc.
-    error: Optional[str] = None
-    summary: Optional[str] = None      # Pre-formatted human-readable summary
+    error: str | None = None
+    summary: str | None = None      # Pre-formatted human-readable summary

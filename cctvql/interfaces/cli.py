@@ -13,7 +13,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from typing import Optional
 
 from cctvql.adapters.base import AdapterRegistry
 from cctvql.core.nlp_engine import NLPEngine
@@ -54,15 +53,15 @@ class CLIChat:
 
     def __init__(
         self,
-        adapter_name: Optional[str] = None,
-        llm_name: Optional[str] = None,
+        adapter_name: str | None = None,
+        llm_name: str | None = None,
         verbose: bool = False,
     ) -> None:
         self.adapter_name = adapter_name
         self.llm_name = llm_name
         self.verbose = verbose
-        self._nlp: Optional[NLPEngine] = None
-        self._router: Optional[QueryRouter] = None
+        self._nlp: NLPEngine | None = None
+        self._router: QueryRouter | None = None
 
     async def setup(self) -> bool:
         """Initialize adapter and LLM. Returns False if setup fails."""
@@ -158,8 +157,8 @@ class CLIChat:
 
 
 def run_cli(
-    adapter_name: Optional[str] = None,
-    llm_name: Optional[str] = None,
+    adapter_name: str | None = None,
+    llm_name: str | None = None,
     verbose: bool = False,
 ) -> None:
     """Entry point for CLI. Called from __main__ or CLI script."""

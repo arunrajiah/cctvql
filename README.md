@@ -7,9 +7,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![CI](https://github.com/arunrajiah/cctvql/actions/workflows/ci.yml/badge.svg)](https://github.com/arunrajiah/cctvql/actions)
+[![codecov](https://img.shields.io/badge/coverage-64%25-yellow)](https://github.com/arunrajiah/cctvql/actions)
 [![PyPI](https://img.shields.io/pypi/v/cctvql)](https://pypi.org/project/cctvql/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://hub.docker.com/r/arunrajiah/cctvql)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![CodeQL](https://github.com/arunrajiah/cctvql/actions/workflows/codeql.yml/badge.svg)](https://github.com/arunrajiah/cctvql/actions/workflows/codeql.yml)
 
 cctvQL is an open-source **conversational query layer** for CCTV and surveillance systems.
 It wraps any camera system — Frigate, ONVIF, Hikvision, Dahua and more — with a natural language interface powered by local or cloud LLMs.
@@ -47,6 +49,10 @@ No dashboards. No complex queries. Just ask.
 - **Vendor-agnostic** — adapter pattern supports any CCTV system; ships with Frigate + ONVIF
 - **Pluggable LLM backends** — Ollama (local/private), OpenAI, Anthropic, or any OpenAI-compatible API
 - **REST API** — integrate with Home Assistant, Grafana, custom dashboards, or mobile apps
+- **WebSocket streaming** — real-time event push to any connected client via `ws://host/ws/events`
+- **Prometheus metrics** — `/metrics` endpoint for Grafana, alerting, and observability
+- **Optional API key auth** — protect your endpoint with `CCTVQL_API_KEY` env var
+- **Demo adapter** — try cctvQL without any hardware; realistic mock data built-in
 - **Interactive CLI** — terminal-based conversational REPL
 - **Real-time events** — MQTT subscription for live alerts (Frigate)
 - **Docker-ready** — running in under 5 minutes
@@ -54,6 +60,15 @@ No dashboards. No complex queries. Just ask.
 ---
 
 ## Quick Start
+
+### Try it now — no hardware needed
+
+```bash
+pip install cctvql
+cctvql chat --adapter demo --llm ollama
+```
+
+The demo adapter ships with 4 cameras, 20 realistic events, and 5 clips — no Frigate or ONVIF device required. Use it to explore the query interface, build integrations, or write tests.
 
 ### Docker (recommended — 5 minutes)
 
@@ -120,6 +135,7 @@ cctvql chat
 |--------|------|---------|--------|
 | [Frigate NVR](https://frigate.video) | NVR | `frigate` | ✅ Full support (REST + MQTT) |
 | Any ONVIF camera/NVR | Camera/NVR | `onvif` | ✅ Full support |
+| Demo / Mock | Built-in | `demo` | ✅ No hardware needed — try cctvQL now |
 | Hikvision | NVR/Camera | `hikvision` | 🚧 Planned — [help wanted](https://github.com/arunrajiah/cctvql/issues) |
 | Dahua | NVR/Camera | `dahua` | 🚧 Planned — [help wanted](https://github.com/arunrajiah/cctvql/issues) |
 | Synology Surveillance Station | NVR | `synology` | 🚧 Planned |
@@ -186,9 +202,19 @@ GET /events?camera=driveway&label=person&after=1712000000&limit=10
 # System health
 GET /health
 
+# Prometheus metrics (for Grafana / alerting)
+GET /metrics
+
 # Clear conversation session
 DELETE /sessions/{session_id}
 ```
+
+Real-time event streaming via WebSocket:
+```
+ws://localhost:8000/ws/events
+```
+
+Optional API key auth — set `CCTVQL_API_KEY` env var to require `X-API-Key` header on all requests.
 
 Interactive Swagger docs available at `http://localhost:8000/docs`.
 
@@ -276,6 +302,16 @@ pytest tests/   # all tests should pass
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
+
+```bash
+# Common developer commands
+make dev          # install with all extras + pre-commit hooks
+make test         # run test suite
+make coverage     # tests + coverage report
+make lint         # ruff linter
+make type-check   # mypy
+make demo         # interactive demo (no real hardware needed)
+```
 
 **Most wanted contributions:**
 - Hikvision adapter

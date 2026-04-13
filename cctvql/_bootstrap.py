@@ -40,8 +40,8 @@ def bootstrap(config_path: str = "config/config.yaml") -> None:
 
 def _bootstrap_defaults() -> None:
     """Register default Ollama + Frigate for zero-config startup."""
-    from cctvql.llm.ollama_backend import OllamaBackend
     from cctvql.adapters.frigate import FrigateAdapter
+    from cctvql.llm.ollama_backend import OllamaBackend
 
     llm = OllamaBackend()
     LLMRegistry.register(llm)
@@ -143,6 +143,9 @@ def _create_adapter(adapter_type: str, cfg: dict):
             username=cfg.get("username", "admin"),
             password=cfg.get("password", ""),
         )
+    elif adapter_type == "demo":
+        from cctvql.adapters.demo import DemoAdapter
+        return DemoAdapter()
     else:
         raise ValueError(f"Unknown adapter type: {adapter_type}")
 
