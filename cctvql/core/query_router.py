@@ -66,6 +66,7 @@ class QueryRouter:
             "set_alert": self._handle_set_alert,
             "list_alerts": self._handle_list_alerts,
             "delete_alert": self._handle_delete_alert,
+            "detect_anomalies": self._handle_detect_anomalies,
             "ptz_move": self._handle_ptz_move,
             "ptz_preset": self._handle_ptz_preset,
         }
@@ -402,6 +403,78 @@ class QueryRouter:
             success=True,
             intent="delete_alert",
             summary=f"No alert rule found with ID `{rule_id}`.",
+        )
+
+    async def _handle_detect_anomalies(self, ctx: QueryContext) -> QueryResult:
+        """Detect statistically unusual activity using historical baseline."""
+        from datetime import datetime as _dt
+        from datetime import timedelta, timezone
+
+        from cctvql.core.anomaly import AnomalyDetector
+
+        now = _dt.now(timezone.utc)
+
+        # Observe window — default last 24 h
+        observe_end = ctx.end_time or now
+        observe_start = ctx.start_time or (observe_end - timedelta(hours=24))
+
+        # Baseline window — 7 days before the observe window
+        baseline_end = observe_start
+        baseline_start = baseline_end - timedelta(days=7)
+
+        observe_events = await self.adapter.get_events(
+            camera_name=ctx.camera_name,
+            start_time=observe_start,
+            end_time=observe_end,
+            limit=2000,
+        )
+        baseline_events = await self.adapter.get_events(
+            camera_name=ctx.camera_name,
+            start_time=baseline_start,
+            end_time=baseline_end,
+            limit=5000,
+        )
+
+        detector = AnomalyDetector(threshold=2.0)
+        anomalies = detector.detect(
+            observe_events=observe_events,
+            baseline_events=baseline_events,
+            observe_start=observe_start,
+            observe_end=observe_end,
+        )
+
+        if not anomalies:
+            cam_qualifier = f" on **{ctx.camera_name}**" if ctx.camera_name else ""
+            return QueryResult(
+                success=True,
+                intent="detect_anomalies",
+                summary=f"No unusual activity detected{cam_qualifier} — everything looks normal.",
+            )
+
+        high = [a for a in anomalies if a.severity == "high"]
+        medium = [a for a in anomalies if a.severity == "medium"]
+        low = [a for a in anomalies if a.severity == "low"]
+
+        lines = [f"Found **{len(anomalies)} anomaly/anomalies**:"]
+        for a in anomalies[:10]:
+            lines.append(f"• {a.to_summary()}")
+        if len(anomalies) > 10:
+            lines.append(f"  … and {len(anomalies) - 10} more.")
+
+        severity_summary = []
+        if high:
+            severity_summary.append(f"{len(high)} high")
+        if medium:
+            severity_summary.append(f"{len(medium)} medium")
+        if low:
+            severity_summary.append(f"{len(low)} low")
+        lines.append(f"\nSeverity: {', '.join(severity_summary)}")
+
+        return QueryResult(
+            success=True,
+            intent="detect_anomalies",
+            data=anomalies,
+            summary="\n".join(lines),
         )
 
     async def _handle_ptz_move(self, ctx: QueryContext) -> QueryResult:

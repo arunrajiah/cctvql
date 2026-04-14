@@ -9,7 +9,8 @@ Endpoints:
   POST /cameras/{id}/ptz       — PTZ camera control
   GET  /events                 — Get events (with filters)
   GET  /events/export          — Export events as CSV
-  GET  /events/timeline          — Events grouped by camera and time bucket
+  GET  /events/timeline        — Events grouped by camera and time bucket
+  GET  /anomalies              — Detect statistically unusual activity
   GET  /health                 — System health check
   GET  /health/cameras         — Per-camera health status
   GET  /metrics                — Prometheus-compatible metrics
@@ -870,6 +871,86 @@ async def events_timeline(
         "cameras": cameras_seen,
         "buckets": buckets,
         "data": data,
+    }
+
+
+@app.get("/anomalies")
+async def get_anomalies(
+    hours: int = Query(
+        default=24,
+        ge=1,
+        le=168,
+        description="Observe window size in hours (1–168, default 24)",
+    ),
+    baseline_days: int = Query(
+        default=7,
+        ge=1,
+        le=30,
+        description="Days of history used to build the normal baseline (default 7)",
+    ),
+    camera: str | None = Query(default=None, description="Restrict to a specific camera name"),
+    threshold: float = Query(
+        default=2.0,
+        ge=0.5,
+        le=10.0,
+        description="Z-score threshold above which activity is considered anomalous (default 2.0)",
+    ),
+) -> dict:
+    """
+    Detect statistically unusual activity across cameras.
+
+    Compares the observe window against a historical baseline of the same
+    hour-of-day across the last ``baseline_days`` days.  Returns both spikes
+    (more events than normal) and silences (unusually quiet periods).
+
+    **Example:**
+    ```
+    GET /anomalies?hours=24&baseline_days=7&threshold=2.0
+    GET /anomalies?camera=Front+Door&hours=6
+    ```
+    """
+    from datetime import timedelta, timezone
+
+    from cctvql.core.anomaly import AnomalyDetector
+
+    adapter = AdapterRegistry.get_active()
+    now = datetime.now(timezone.utc)
+
+    observe_end = now
+    observe_start = now - timedelta(hours=hours)
+    baseline_start = observe_start - timedelta(days=baseline_days)
+
+    observe_events = await adapter.get_events(
+        camera_name=camera,
+        start_time=observe_start,
+        end_time=observe_end,
+        limit=2000,
+    )
+    baseline_events = await adapter.get_events(
+        camera_name=camera,
+        start_time=baseline_start,
+        end_time=observe_start,
+        limit=5000,
+    )
+
+    detector = AnomalyDetector(threshold=threshold)
+    anomalies = detector.detect(
+        observe_events=observe_events,
+        baseline_events=baseline_events,
+        observe_start=observe_start,
+        observe_end=observe_end,
+    )
+
+    return {
+        "observe_start": observe_start.strftime("%Y-%m-%dT%H:%M"),
+        "observe_end": observe_end.strftime("%Y-%m-%dT%H:%M"),
+        "baseline_days": baseline_days,
+        "threshold": threshold,
+        "total": len(anomalies),
+        "high": sum(1 for a in anomalies if a.severity == "high"),
+        "medium": sum(1 for a in anomalies if a.severity == "medium"),
+        "low": sum(1 for a in anomalies if a.severity == "low"),
+        "anomalies": [a.to_dict() for a in anomalies],
     }
 
 

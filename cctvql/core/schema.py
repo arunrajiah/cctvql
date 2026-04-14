@@ -210,3 +210,7 @@ class QueryResult:
     data: Any = None  # list[Event] | list[Camera] | etc.
     error: str | None = None
     summary: str | None = None  # Pre-formatted human-readable summary
+
+
+# Re-export AnomalyResult here for convenience so callers only need one import
+from cctvql.core.anomaly import AnomalyResult as AnomalyResult  # noqa: E402, F401

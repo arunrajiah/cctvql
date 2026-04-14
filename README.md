@@ -271,6 +271,10 @@ GET    /alerts/{id}
 PATCH  /alerts/{id}
 DELETE /alerts/{id}
 
+# Anomaly detection (statistical spike/silence analysis)
+GET /anomalies
+GET /anomalies?hours=6&camera=Front+Door&threshold=1.5
+
 # Prometheus metrics (for Grafana / alerting)
 GET /metrics
 
@@ -431,7 +435,7 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 - [x] ONVIF discovery — auto-detect cameras on the local network (`cctvql discover` CLI + `GET /discover/onvif`)
 - [x] Event timeline UI — visual heatmap timeline at `/timeline` with camera rows, time buckets, tooltips, auto-refresh
 - [ ] Face recognition — identify known individuals across camera feeds
-- [ ] Anomaly detection — flag unusual activity patterns automatically
+- [x] Anomaly detection — statistical spike/silence detection per camera with z-score baseline (`GET /anomalies`)
 - [ ] Multi-tenant support — per-user camera permissions and isolated sessions
 - [ ] Mobile app (React Native)
 
