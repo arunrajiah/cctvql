@@ -9,6 +9,7 @@ Endpoints:
   POST /cameras/{id}/ptz       — PTZ camera control
   GET  /events                 — Get events (with filters)
   GET  /events/export          — Export events as CSV
+  GET  /events/timeline          — Events grouped by camera and time bucket
   GET  /health                 — System health check
   GET  /health/cameras         — Per-camera health status
   GET  /metrics                — Prometheus-compatible metrics
@@ -338,6 +339,13 @@ async def root() -> HTMLResponse:
     """Serve the cctvQL Web UI."""
     index = Path(__file__).parent / "static" / "index.html"
     return HTMLResponse(content=index.read_text())
+
+
+@app.get("/timeline", response_class=HTMLResponse)
+async def timeline_ui() -> HTMLResponse:
+    """Serve the cctvQL Event Timeline UI."""
+    page = Path(__file__).parent / "static" / "timeline.html"
+    return HTMLResponse(content=page.read_text())
 
 
 @app.post("/query", response_model=QueryResponse)
@@ -765,6 +773,104 @@ async def voice_synthesize(body: dict) -> Response:
 # ---------------------------------------------------------------------------
 # Prometheus-compatible metrics
 # ---------------------------------------------------------------------------
+
+
+@app.get("/events/timeline")
+async def events_timeline(
+    hours: int = Query(default=24, ge=1, le=168, description="Time window in hours (1–168)"),
+    bucket_minutes: int = Query(
+        default=0,
+        ge=0,
+        le=120,
+        description="Bucket size in minutes (0 = auto: 15 for ≤6h, 60 for >6h)",
+    ),
+    camera: str | None = Query(default=None, description="Filter to a specific camera name"),
+) -> dict:
+    """
+    Return events grouped into time buckets for timeline visualisation.
+
+    The response includes:
+    - cameras: ordered list of camera names present in the window
+    - buckets: ordered list of ISO-format bucket timestamps
+    - bucket_minutes: the resolved bucket size used
+    - range_start / range_end: the time window boundaries (ISO)
+    - data: dict[camera_name, dict[bucket_ts, {count, labels, top_label}]]
+    """
+    from datetime import timedelta, timezone
+
+    # Resolve bucket size
+    if bucket_minutes == 0:
+        bucket_minutes = 15 if hours <= 6 else 60
+
+    adapter = AdapterRegistry.get_active()
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(hours=hours)
+
+    raw_events = await adapter.get_events(
+        camera_name=camera,
+        start_time=start,
+        end_time=now,
+        limit=2000,
+    )
+
+    # Build bucket grid
+    delta = timedelta(minutes=bucket_minutes)
+    buckets: list[str] = []
+    t = start
+    while t <= now:
+        buckets.append(t.strftime("%Y-%m-%dT%H:%M"))
+        t += delta
+
+    # Collect camera names in encounter order
+    cameras_seen: list[str] = []
+    cameras_set: set[str] = set()
+
+    # data[camera][bucket] = {"count": int, "labels": list[str]}
+    data: dict[str, dict[str, dict]] = {}
+
+    for evt in raw_events:
+        cam = evt.camera_name
+        if cam not in cameras_set:
+            if camera and cam.lower() != camera.lower():
+                continue
+            cameras_seen.append(cam)
+            cameras_set.add(cam)
+            data[cam] = {}
+
+        # Find the bucket this event falls into
+        evt_ts = evt.start_time
+        if evt_ts.tzinfo is None:
+            evt_ts = evt_ts.replace(tzinfo=timezone.utc)
+        # Floor to bucket boundary
+        offset = int((evt_ts - start).total_seconds() // (bucket_minutes * 60))
+        if offset < 0 or offset >= len(buckets):
+            continue
+        bucket_key = buckets[offset]
+
+        if bucket_key not in data[cam]:
+            data[cam][bucket_key] = {"count": 0, "labels": []}
+        data[cam][bucket_key]["count"] += 1
+        for obj in evt.objects or []:
+            data[cam][bucket_key]["labels"].append(obj.label)
+
+    # Add top_label to each bucket cell
+    for cam_data in data.values():
+        for cell in cam_data.values():
+            labels = cell["labels"]
+            if labels:
+                cell["top_label"] = max(set(labels), key=labels.count)
+            else:
+                cell["top_label"] = None
+
+    return {
+        "range_start": start.strftime("%Y-%m-%dT%H:%M"),
+        "range_end": now.strftime("%Y-%m-%dT%H:%M"),
+        "hours": hours,
+        "bucket_minutes": bucket_minutes,
+        "cameras": cameras_seen,
+        "buckets": buckets,
+        "data": data,
+    }
 
 
 @app.get("/discover/onvif")

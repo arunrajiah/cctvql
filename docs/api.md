@@ -288,6 +288,54 @@ On first startup, the list may be empty until the first poll completes.
 
 ---
 
+## GET /events/timeline
+
+Returns events grouped into time buckets for timeline visualisation. Powers the `/timeline` web UI.
+
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `hours` | integer | `24` | Time window size in hours (1–168) |
+| `bucket_minutes` | integer | `0` | Bucket width in minutes. `0` = auto: 15 min for ≤6 h, 60 min for >6 h |
+| `camera` | string | — | Filter to a single camera name |
+
+**Example:**
+```bash
+# Last 6 hours, 15-minute buckets
+curl "http://localhost:8000/events/timeline?hours=6"
+
+# Last 7 days, 1-hour buckets, Front Door only
+curl "http://localhost:8000/events/timeline?hours=168&camera=Front+Door"
+```
+
+**Response:**
+```json
+{
+  "range_start": "2026-04-13T10:00",
+  "range_end":   "2026-04-14T10:00",
+  "hours": 24,
+  "bucket_minutes": 60,
+  "cameras": ["Front Door", "Backyard"],
+  "buckets": ["2026-04-13T10:00", "2026-04-13T11:00", "..."],
+  "data": {
+    "Front Door": {
+      "2026-04-13T22:00": {
+        "count": 3,
+        "labels": ["person", "person", "car"],
+        "top_label": "person"
+      }
+    }
+  }
+}
+```
+
+The `data` object is a sparse dict: only buckets that contain at least one event are present.
+
+**Timeline web UI:** open `http://localhost:8000/timeline` in a browser for the interactive heatmap view.
+
+---
+
 ## GET /discover/onvif
 
 Discover ONVIF-compatible cameras on the local network using WS-Discovery (UDP multicast to `239.255.255.250:3702`). No external dependencies required.

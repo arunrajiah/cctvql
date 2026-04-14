@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cctvQL — Event Timeline</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:      #0d0f12;
+      --bg-panel:     #141720;
+      --bg-surface:   #1c2030;
+      --bg-hover:     #232840;
+      --border:       #2a2f45;
+      --accent:       #3b82f6;
+      --accent-dim:   #1e3a5f;
+      --accent-light: #60a5fa;
+      --text-primary: #e2e8f0;
+      --text-secondary:#94a3b8;
+      --text-muted:   #4b5568;
+      --green:        #22c55e;
+      --red:          #ef4444;
+      --amber:        #f59e0b;
+      --purple:       #a855f7;
+      --radius:       8px;
+      --radius-sm:    4px;
+      --header-h:     52px;
+      --toolbar-h:    52px;
+      --cam-col-w:    140px;
+      --cell-w:       32px;
+      --cell-h:       40px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    /* ── Layout ── */
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ── Header ── */
+    #header {
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      flex-shrink: 0;
+    }
+
+    #header-left { display: flex; align-items: center; gap: 14px; }
+
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-icon svg { width: 16px; height: 16px; fill: #fff; }
+
+    .logo-text { font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+    .logo-text span { color: var(--accent-light); }
+
+    .page-badge {
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    #header-right { display: flex; align-items: center; gap: 10px; }
+
+    .btn {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px; font-weight: 500;
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+      text-decoration: none;
+    }
+    .btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--accent); }
+    .btn svg { width: 13px; height: 13px; }
+    .btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent-light); }
+
+    #refresh-indicator {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background .3s, box-shadow .3s;
+    }
+    #refresh-indicator.live { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      height: var(--toolbar-h);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+
+    .toolbar-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .range-btn {
+      padding: 4px 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px; font-weight: 500;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      white-space: nowrap;
+    }
+    .range-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .range-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent-light); }
+
+    .toolbar-sep {
+      width: 1px; height: 24px;
+      background: var(--border);
+      flex-shrink: 0;
+      margin: 0 4px;
+    }
+
+    #camera-filter {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      outline: none;
+    }
+    #camera-filter:focus { border-color: var(--accent); color: var(--text-primary); }
+
+    /* ── Timeline body ── */
+    #timeline-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Sticky camera column */
+    #cam-col {
+      width: var(--cam-col-w);
+      min-width: var(--cam-col-w);
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    #cam-col-header {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    #cam-rows {
+      flex: 1;
+      overflow-y: hidden; /* synced with grid scroll */
+    }
+
+    .cam-row-label {
+      height: var(--cell-h);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Scrollable grid area */
+    #grid-scroll {
+      flex: 1;
+      overflow: auto;
+      position: relative;
+    }
+
+    #grid-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    #grid-scroll::-webkit-scrollbar-track { background: transparent; }
+    #grid-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    #grid-inner {
+      display: flex;
+      flex-direction: column;
+      min-width: max-content;
+    }
+
+    /* Time header row */
+    #time-header {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      z-index: 5;
+    }
+
+    .time-tick {
+      width: var(--cell-w);
+      min-width: var(--cell-w);
+      font-size: 9px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 0 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      border-right: 1px solid transparent;
+    }
+
+    .time-tick.major {
+      color: var(--text-secondary);
+      font-weight: 600;
+      border-right-color: var(--border);
+    }
+
+    /* Data rows */
+    .grid-row {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .grid-cell {
+      width: var(--cell-w);
+      min-width: var(--cell-w);
+      height: var(--cell-h);
+      border-right: 1px solid transparent;
+      cursor: default;
+      position: relative;
+      transition: opacity .15s;
+    }
+
+    .grid-cell.major { border-right-color: rgba(42,47,69,.6); }
+
+    .grid-cell:hover .cell-inner { transform: scale(1.15); }
+
+    .cell-inner {
+      position: absolute;
+      inset: 5px 4px;
+      border-radius: 3px;
+      transition: transform .1s;
+    }
+
+    /* Intensity classes */
+    .cell-0  .cell-inner { background: transparent; }
+    .cell-1  .cell-inner { background: #1e3a5f; }
+    .cell-2  .cell-inner { background: #1d4ed8; opacity: .7; }
+    .cell-3  .cell-inner { background: #2563eb; opacity: .85; }
+    .cell-4  .cell-inner { background: #3b82f6; }
+    .cell-5  .cell-inner { background: #60a5fa; }
+
+    /* Label-coloured cells */
+    .cell-person  .cell-inner { background: #3b82f6; }
+    .cell-car     .cell-inner { background: #8b5cf6; }
+    .cell-animal  .cell-inner { background: #22c55e; }
+    .cell-motion  .cell-inner { background: #f59e0b; }
+    .cell-other   .cell-inner { background: #94a3b8; }
+
+    /* ── Tooltip ── */
+    #tooltip {
+      position: fixed;
+      z-index: 1000;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .1s;
+      max-width: 220px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    }
+    #tooltip.visible { opacity: 1; }
+    #tooltip .tt-time { color: var(--text-muted); font-size: 10px; margin-bottom: 4px; }
+    #tooltip .tt-cam  { font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+    #tooltip .tt-count{ color: var(--accent-light); font-weight: 600; }
+    #tooltip .tt-labels { margin-top: 4px; color: var(--text-secondary); }
+    .label-pill {
+      display: inline-block;
+      padding: 1px 7px;
+      background: var(--bg-hover);
+      border-radius: 20px;
+      font-size: 10px;
+      margin: 2px 2px 0 0;
+    }
+
+    /* ── Legend ── */
+    #legend {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 20px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-panel);
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .legend-swatch {
+      width: 12px; height: 12px;
+      border-radius: 2px;
+    }
+
+    /* ── Empty / loading states ── */
+    #empty-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-muted);
+      font-size: 13px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    #empty-overlay.visible { opacity: 1; pointer-events: auto; }
+    #empty-overlay svg { width: 40px; height: 40px; opacity: .3; }
+
+    .spinner {
+      width: 24px; height: 24px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      :root { --cam-col-w: 100px; --cell-w: 26px; }
+      #legend { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <header id="header">
+    <div id="header-left">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+        </svg>
+      </div>
+      <span class="logo-text">cctv<span>QL</span></span>
+      <span class="page-badge">Timeline</span>
+    </div>
+    <div id="header-right">
+      <div id="refresh-indicator" title="Auto-refresh status"></div>
+      <button class="btn" id="auto-refresh-btn" title="Toggle auto-refresh">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+        </svg>
+        Auto-refresh
+      </button>
+      <a class="btn" href="/" title="Back to chat">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
+        </svg>
+        Chat
+      </a>
+    </div>
+  </header>
+
+  <!-- Toolbar -->
+  <div id="toolbar">
+    <span class="toolbar-label">Range</span>
+    <button class="range-btn" data-hours="1">1h</button>
+    <button class="range-btn" data-hours="6">6h</button>
+    <button class="range-btn active" data-hours="24">24h</button>
+    <button class="range-btn" data-hours="72">3d</button>
+    <button class="range-btn" data-hours="168">7d</button>
+
+    <div class="toolbar-sep"></div>
+
+    <span class="toolbar-label">Camera</span>
+    <select id="camera-filter">
+      <option value="">All cameras</option>
+    </select>
+
+    <div class="toolbar-sep"></div>
+
+    <button class="btn" id="refresh-now-btn" title="Refresh now">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+      </svg>
+      Refresh
+    </button>
+
+    <span id="last-updated" style="font-size:11px;color:var(--text-muted);margin-left:4px;"></span>
+  </div>
+
+  <!-- Main timeline body -->
+  <div id="timeline-body">
+
+    <!-- Sticky camera label column -->
+    <div id="cam-col">
+      <div id="cam-col-header">Camera</div>
+      <div id="cam-rows"></div>
+    </div>
+
+    <!-- Scrollable grid -->
+    <div id="grid-scroll">
+      <div id="grid-inner">
+        <div id="time-header"></div>
+        <div id="grid-rows"></div>
+      </div>
+
+      <!-- Empty / loading overlay -->
+      <div id="empty-overlay">
+        <div class="spinner" id="spinner"></div>
+        <span id="empty-msg">Loading…</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Legend -->
+  <div id="legend">
+    <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;">Legend:</span>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:#3b82f6;"></div> Person
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:#8b5cf6;"></div> Vehicle
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:#22c55e;"></div> Animal
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:#f59e0b;"></div> Motion
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:#94a3b8;"></div> Other
+    </div>
+    <div style="margin-left:auto;font-size:10px;">Darker = more events in bucket</div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- Tooltip -->
+<div id="tooltip"></div>
+
+<script>
+/* =========================================================================
+   State
+========================================================================= */
+let currentHours = 24;
+let currentCamera = '';
+let autoRefresh = false;
+let refreshTimer = null;
+const REFRESH_INTERVAL = 30000; // 30 s
+
+/* =========================================================================
+   Utility
+========================================================================= */
+function fmtTime(isoStr, bucketMins) {
+  const d = new Date(isoStr + ':00Z');
+  if (bucketMins >= 60) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function fmtFull(isoStr) {
+  const d = new Date(isoStr + ':00Z');
+  return d.toLocaleString([], {
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+}
+
+function labelClass(label) {
+  if (!label) return 'cell-motion';
+  const l = label.toLowerCase();
+  if (l === 'person') return 'cell-person';
+  if (l === 'car' || l === 'truck' || l === 'vehicle' || l === 'bicycle' || l === 'motorbike') return 'cell-car';
+  if (l === 'dog' || l === 'cat' || l === 'bird' || l === 'animal') return 'cell-animal';
+  if (l === 'motion') return 'cell-motion';
+  return 'cell-other';
+}
+
+function intensityClass(count) {
+  if (count === 0) return 'cell-0';
+  if (count === 1) return 'cell-1';
+  if (count === 2) return 'cell-2';
+  if (count === 3) return 'cell-3';
+  if (count <= 5) return 'cell-4';
+  return 'cell-5';
+}
+
+/* =========================================================================
+   Fetch & Render
+========================================================================= */
+async function fetchTimeline() {
+  showLoading(true);
+  const params = new URLSearchParams({ hours: currentHours });
+  if (currentCamera) params.set('camera', currentCamera);
+
+  let data;
+  try {
+    const resp = await fetch(`/events/timeline?${params}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    data = await resp.json();
+  } catch (e) {
+    showLoading(false, `Failed to load timeline: ${e.message}`);
+    return;
+  }
+
+  renderTimeline(data);
+  showLoading(false);
+  document.getElementById('last-updated').textContent =
+    'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  // Populate camera filter (first load)
+  populateCameraFilter(data.cameras);
+
+  // Scroll to right end
+  const gs = document.getElementById('grid-scroll');
+  requestAnimationFrame(() => { gs.scrollLeft = gs.scrollWidth; });
+}
+
+function populateCameraFilter(cameras) {
+  const sel = document.getElementById('camera-filter');
+  const existing = new Set(Array.from(sel.options).map(o => o.value));
+  cameras.forEach(cam => {
+    if (!existing.has(cam)) {
+      const opt = document.createElement('option');
+      opt.value = cam;
+      opt.textContent = cam;
+      sel.appendChild(opt);
+    }
+  });
+  sel.value = currentCamera;
+}
+
+function renderTimeline(data) {
+  const { cameras, buckets, bucket_minutes, data: gridData } = data;
+
+  const camRows = document.getElementById('cam-rows');
+  const timeHeader = document.getElementById('time-header');
+  const gridRowsEl = document.getElementById('grid-rows');
+
+  camRows.innerHTML = '';
+  timeHeader.innerHTML = '';
+  gridRowsEl.innerHTML = '';
+
+  if (cameras.length === 0) {
+    showLoading(false, 'No events found in this time window.');
+    return;
+  }
+
+  // ── Time header ──────────────────────────────────────────────────────────
+  buckets.forEach((b, i) => {
+    const tick = document.createElement('div');
+    tick.className = 'time-tick';
+
+    // Show label for every nth bucket to avoid crowding
+    const showEvery = bucket_minutes <= 15 ? 4 : (bucket_minutes <= 30 ? 2 : 1);
+    const isMajor = i % showEvery === 0;
+    if (isMajor) {
+      tick.classList.add('major');
+      tick.textContent = fmtTime(b, bucket_minutes);
+    }
+    timeHeader.appendChild(tick);
+  });
+
+  // ── Camera rows ───────────────────────────────────────────────────────────
+  cameras.forEach(cam => {
+    // Label in sticky column
+    const lbl = document.createElement('div');
+    lbl.className = 'cam-row-label';
+    lbl.textContent = cam;
+    lbl.title = cam;
+    camRows.appendChild(lbl);
+
+    // Data row
+    const row = document.createElement('div');
+    row.className = 'grid-row';
+
+    const camData = gridData[cam] || {};
+
+    buckets.forEach((b, i) => {
+      const cell = document.createElement('div');
+      const cellInfo = camData[b];
+      const count = cellInfo ? cellInfo.count : 0;
+      const topLabel = cellInfo ? cellInfo.top_label : null;
+
+      const showEvery = bucket_minutes <= 15 ? 4 : (bucket_minutes <= 30 ? 2 : 1);
+      const isMajor = i % showEvery === 0;
+
+      cell.className = [
+        'grid-cell',
+        isMajor ? 'major' : '',
+        count > 0 ? labelClass(topLabel) : intensityClass(0),
+      ].join(' ');
+
+      const inner = document.createElement('div');
+      inner.className = 'cell-inner';
+      if (count > 0 && count > 1) {
+        // Intensity overlay for high counts
+        const opacity = Math.min(0.4 + count * 0.1, 1.0);
+        inner.style.opacity = opacity;
+      }
+      cell.appendChild(inner);
+
+      // Tooltip events
+      if (count > 0) {
+        cell.style.cursor = 'pointer';
+        cell.addEventListener('mouseenter', (e) => showTooltip(e, cam, b, cellInfo));
+        cell.addEventListener('mouseleave', hideTooltip);
+        cell.addEventListener('mousemove', moveTooltip);
+      }
+
+      row.appendChild(cell);
+    });
+
+    gridRowsEl.appendChild(row);
+  });
+
+  // Sync vertical scroll between cam-rows and grid-scroll
+  const gs = document.getElementById('grid-scroll');
+  gs.addEventListener('scroll', () => {
+    camRows.style.transform = `translateY(-${gs.scrollTop}px)`;
+  });
+}
+
+/* =========================================================================
+   Tooltip
+========================================================================= */
+const tooltip = document.getElementById('tooltip');
+let tooltipVisible = false;
+
+function showTooltip(e, cam, bucketTs, cellInfo) {
+  const labels = cellInfo.labels || [];
+  const labelCounts = {};
+  labels.forEach(l => { labelCounts[l] = (labelCounts[l] || 0) + 1; });
+
+  const labelHtml = Object.entries(labelCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([l, c]) => `<span class="label-pill">${l} ×${c}</span>`)
+    .join('');
+
+  tooltip.innerHTML = `
+    <div class="tt-time">${fmtFull(bucketTs)}</div>
+    <div class="tt-cam">${cam}</div>
+    <div class="tt-count">${cellInfo.count} event${cellInfo.count !== 1 ? 's' : ''}</div>
+    ${labelHtml ? `<div class="tt-labels">${labelHtml}</div>` : ''}
+  `;
+
+  tooltip.classList.add('visible');
+  tooltipVisible = true;
+  moveTooltip(e);
+}
+
+function hideTooltip() {
+  tooltip.classList.remove('visible');
+  tooltipVisible = false;
+}
+
+function moveTooltip(e) {
+  if (!tooltipVisible) return;
+  const margin = 12;
+  let x = e.clientX + margin;
+  let y = e.clientY + margin;
+  const tw = tooltip.offsetWidth;
+  const th = tooltip.offsetHeight;
+  if (x + tw > window.innerWidth - margin) x = e.clientX - tw - margin;
+  if (y + th > window.innerHeight - margin) y = e.clientY - th - margin;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+
+/* =========================================================================
+   Loading state
+========================================================================= */
+function showLoading(loading, msg = '') {
+  const overlay = document.getElementById('empty-overlay');
+  const spinner = document.getElementById('spinner');
+  const msgEl   = document.getElementById('empty-msg');
+  if (loading) {
+    spinner.style.display = 'block';
+    msgEl.textContent = 'Loading…';
+    overlay.classList.add('visible');
+  } else if (msg) {
+    spinner.style.display = 'none';
+    msgEl.textContent = msg;
+    overlay.classList.add('visible');
+  } else {
+    overlay.classList.remove('visible');
+  }
+}
+
+/* =========================================================================
+   Auto-refresh
+========================================================================= */
+function setAutoRefresh(on) {
+  autoRefresh = on;
+  const btn = document.getElementById('auto-refresh-btn');
+  const ind = document.getElementById('refresh-indicator');
+  btn.classList.toggle('active', on);
+  ind.classList.toggle('live', on);
+  clearInterval(refreshTimer);
+  if (on) {
+    refreshTimer = setInterval(fetchTimeline, REFRESH_INTERVAL);
+  }
+}
+
+/* =========================================================================
+   Event wiring
+========================================================================= */
+document.querySelectorAll('.range-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentHours = parseInt(btn.dataset.hours, 10);
+    fetchTimeline();
+  });
+});
+
+document.getElementById('camera-filter').addEventListener('change', e => {
+  currentCamera = e.target.value;
+  fetchTimeline();
+});
+
+document.getElementById('refresh-now-btn').addEventListener('click', fetchTimeline);
+
+document.getElementById('auto-refresh-btn').addEventListener('click', () => {
+  setAutoRefresh(!autoRefresh);
+});
+
+/* =========================================================================
+   Init
+========================================================================= */
+fetchTimeline();
+</script>
+</body>
+</html>
