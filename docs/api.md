@@ -288,6 +288,52 @@ On first startup, the list may be empty until the first poll completes.
 
 ---
 
+## GET /discover/onvif
+
+Discover ONVIF-compatible cameras on the local network using WS-Discovery (UDP multicast to `239.255.255.250:3702`). No external dependencies required.
+
+Useful for bootstrapping — run this endpoint to find cameras and copy their `host`/`port` into `config.yaml`.
+
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `timeout` | float | `3.0` | Probe wait time in seconds (0.5–10.0) |
+| `interface` | string | `""` | Local interface IP to bind (default: all interfaces) |
+
+**Example:**
+```bash
+curl "http://localhost:8000/discover/onvif?timeout=5"
+```
+
+**Response:**
+```json
+[
+  {
+    "address": "http://192.168.1.101:80/onvif/device_service",
+    "host": "192.168.1.101",
+    "port": 80,
+    "name": "FrontDoorCam",
+    "hardware": "DS-2CD2T43G2-2I",
+    "types": ["NetworkVideoTransmitter"],
+    "scopes": [
+      "onvif://www.onvif.org/name/FrontDoorCam",
+      "onvif://www.onvif.org/hardware/DS-2CD2T43G2-2I"
+    ]
+  }
+]
+```
+
+Returns an empty list `[]` if no devices respond within the timeout.
+
+**CLI equivalent:**
+```bash
+cctvql discover
+cctvql discover --timeout 5 --yaml   # prints config.yaml snippet
+```
+
+---
+
 ## Alert Rules
 
 ### GET /alerts

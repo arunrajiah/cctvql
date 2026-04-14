@@ -18,6 +18,7 @@ Endpoints:
   PATCH /alerts/{id}           — Update alert rule
   DELETE /alerts/{id}          — Delete alert rule
   DELETE /sessions/{id}        — Clear conversation session
+  GET  /discover/onvif         — Discover ONVIF cameras on the local network
   POST /voice/query            — Voice query (audio → text answer)
   POST /voice/synthesize       — Text-to-speech
   WS   /ws/events              — Real-time event streaming via WebSocket
@@ -764,6 +765,26 @@ async def voice_synthesize(body: dict) -> Response:
 # ---------------------------------------------------------------------------
 # Prometheus-compatible metrics
 # ---------------------------------------------------------------------------
+
+
+@app.get("/discover/onvif")
+async def discover_onvif(
+    timeout: float = Query(default=3.0, ge=0.5, le=10.0, description="Probe timeout in seconds"),
+    interface: str = Query(default="", description="Local interface IP to bind to (default: all)"),
+) -> list[dict]:
+    """
+    Discover ONVIF cameras on the local network using WS-Discovery (UDP multicast).
+
+    Sends a WS-Discovery Probe to 239.255.255.250:3702 and collects responses.
+    Returns a list of discovered devices with their ONVIF endpoint URLs and names.
+
+    This endpoint is useful for bootstrapping — copy the discovered `host` and `port`
+    values into your `config.yaml` to add ONVIF adapters.
+    """
+    from cctvql.adapters.onvif_discovery import discover_and_format
+
+    devices = await discover_and_format(timeout=timeout, interface=interface)
+    return devices
 
 
 @app.get("/metrics", response_class=PlainTextResponse)
