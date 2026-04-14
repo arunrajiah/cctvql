@@ -60,6 +60,7 @@ No dashboards. No complex queries. Just ask.
 - **Demo adapter** — try cctvQL without any hardware; realistic mock data built-in
 - **Interactive CLI** — terminal-based conversational REPL
 - **Real-time events** — MQTT subscription for live alerts (Frigate)
+- **Home Assistant integration** — native custom integration with sensors, binary sensors (per-camera motion), PTZ and query services; installable via HACS
 - **Docker-ready** — running in under 5 minutes with persistent SQLite storage
 
 ---
@@ -426,7 +427,7 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 - [x] Event log — every detection written to SQLite; exportable as CSV/JSON
 - [x] Camera health monitoring — per-camera online/offline status with background polling
 - [x] Prometheus metrics — cameras online/offline, alert rule count
-- [ ] Home Assistant custom integration
+- [x] Home Assistant custom integration — sensors, binary sensors, services, HACS-ready
 - [ ] ONVIF discovery — auto-detect cameras on the local network
 - [ ] Event timeline UI — visual timeline of events across all cameras
 - [ ] Face recognition — identify known individuals across camera feeds

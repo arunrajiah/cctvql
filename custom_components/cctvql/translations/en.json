@@ -1,0 +1,33 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to cctvQL",
+        "description": "Enter the host and port where your cctvQL server is running.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "api_key": "API Key (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to cctvQL. Check the host and port.",
+      "invalid_auth": "Invalid API key.",
+      "unknown": "Unexpected error. Check the Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "cctvQL is already configured for this host."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "cctvQL Options",
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        }
+      }
+    }
+  }
+}
