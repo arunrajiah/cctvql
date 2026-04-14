@@ -293,7 +293,6 @@ def test_fmt_time():
 
 
 def test_parse_isapi_time_standard():
-
     result = HikvisionAdapter._parse_isapi_time("2026-01-15T10:00:00+00:00")
     assert result.year == 2026
     assert result.month == 1

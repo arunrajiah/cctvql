@@ -168,9 +168,7 @@ async def test_client_fetch_all():
 @pytest.mark.asyncio
 @respx.mock
 async def test_client_sends_api_key_header():
-    route = respx.get(f"{BASE}/health").mock(
-        return_value=httpx.Response(200, json=HEALTH_PAYLOAD)
-    )
+    route = respx.get(f"{BASE}/health").mock(return_value=httpx.Response(200, json=HEALTH_PAYLOAD))
     client = CctvqlClient("localhost", 8000, api_key="secret-key")
     await client.health()
     assert route.called
@@ -180,9 +178,7 @@ async def test_client_sends_api_key_header():
 @pytest.mark.asyncio
 @respx.mock
 async def test_client_no_api_key_when_not_set():
-    route = respx.get(f"{BASE}/health").mock(
-        return_value=httpx.Response(200, json=HEALTH_PAYLOAD)
-    )
+    route = respx.get(f"{BASE}/health").mock(return_value=httpx.Response(200, json=HEALTH_PAYLOAD))
     client = CctvqlClient("localhost", 8000)
     await client.health()
     assert "x-api-key" not in route.calls[0].request.headers
@@ -196,15 +192,14 @@ async def test_client_no_api_key_when_not_set():
 @pytest.mark.asyncio
 @respx.mock
 async def test_client_query():
-    route = respx.post(f"{BASE}/query").mock(
-        return_value=httpx.Response(200, json=QUERY_PAYLOAD)
-    )
+    route = respx.post(f"{BASE}/query").mock(return_value=httpx.Response(200, json=QUERY_PAYLOAD))
     client = CctvqlClient("localhost", 8000)
     result = await client.query("Any motion today?")
     assert result["answer"] == "Yes — 1 person detected."
     assert result["intent"] == "get_events"
     body = route.calls[0].request.content
     import json
+
     payload = json.loads(body)
     assert payload["query"] == "Any motion today?"
     assert payload["session_id"] == "homeassistant"
@@ -213,12 +208,11 @@ async def test_client_query():
 @pytest.mark.asyncio
 @respx.mock
 async def test_client_query_custom_session():
-    route = respx.post(f"{BASE}/query").mock(
-        return_value=httpx.Response(200, json=QUERY_PAYLOAD)
-    )
+    route = respx.post(f"{BASE}/query").mock(return_value=httpx.Response(200, json=QUERY_PAYLOAD))
     client = CctvqlClient("localhost", 8000)
     await client.query("Show cameras", session_id="my-session")
     import json
+
     payload = json.loads(route.calls[0].request.content)
     assert payload["session_id"] == "my-session"
 
@@ -238,6 +232,7 @@ async def test_client_ptz_left():
     result = await client.ptz("cam_front_door", action="left", speed=30)
     assert result["status"] == "ok"
     import json
+
     body = json.loads(route.calls[0].request.content)
     assert body["action"] == "left"
     assert body["speed"] == 30
@@ -252,6 +247,7 @@ async def test_client_ptz_preset():
     client = CctvqlClient("localhost", 8000)
     await client.ptz("cam_front_door", action="preset", preset_id=2)
     import json
+
     body = json.loads(route.calls[0].request.content)
     assert body["action"] == "preset"
     assert body["preset_id"] == 2
