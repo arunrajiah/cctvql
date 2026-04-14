@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to cctvQL",
+        "description": "Enter the host and port where your cctvQL server is running.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "api_key": "API Key (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to cctvQL. Check the host and port.",
+      "invalid_auth": "Invalid API key.",
+      "unknown": "Unexpected error. Check the Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "cctvQL is already configured for this host."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "cctvQL Options",
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        }
+      }
+    }
+  },
+  "services": {
+    "query": {
+      "name": "Query",
+      "description": "Ask cctvQL a natural language question about your cameras.",
+      "fields": {
+        "query": {
+          "name": "Query",
+          "description": "Natural language question, e.g. \"Were there people on the driveway last night?\""
+        },
+        "session_id": {
+          "name": "Session ID",
+          "description": "Session ID for multi-turn conversations (default: homeassistant)."
+        }
+      }
+    },
+    "ptz": {
+      "name": "PTZ",
+      "description": "Send a pan/tilt/zoom command to a camera.",
+      "fields": {
+        "camera_id": {
+          "name": "Camera ID",
+          "description": "Camera ID as shown in the cameras list."
+        },
+        "action": {
+          "name": "Action",
+          "description": "PTZ action: left, right, up, down, zoom_in, zoom_out, home, preset."
+        },
+        "speed": {
+          "name": "Speed",
+          "description": "Movement speed 1-100 (default: 50)."
+        },
+        "preset_id": {
+          "name": "Preset ID",
+          "description": "Required when action is preset."
+        }
+      }
+    },
+    "clear_session": {
+      "name": "Clear Session",
+      "description": "Clear the cctvQL conversation history for a session.",
+      "fields": {
+        "session_id": {
+          "name": "Session ID",
+          "description": "Session to clear (default: homeassistant)."
+        }
+      }
+    }
+  }
+}
