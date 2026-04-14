@@ -48,9 +48,7 @@ async def _validate_connection(host: str, port: int, api_key: str) -> dict[str, 
         headers["X-API-Key"] = api_key
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(
-                f"http://{host}:{port}/health", headers=headers
-            )
+            resp = await client.get(f"http://{host}:{port}/health", headers=headers)
             if resp.status_code == 401:
                 return {"base": "invalid_auth"}
             if resp.status_code != 200:
@@ -67,9 +65,7 @@ class CctvqlConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -108,22 +104,18 @@ class CctvqlOptionsFlow(OptionsFlow):
     def __init__(self, config_entry: ConfigEntry) -> None:
         self._config_entry = config_entry
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        current_interval = self._config_entry.options.get(
-            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
-        )
+        current_interval = self._config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(
-                        CONF_SCAN_INTERVAL, default=current_interval
-                    ): vol.All(int, vol.Range(min=10, max=3600))
+                    vol.Optional(CONF_SCAN_INTERVAL, default=current_interval): vol.All(
+                        int, vol.Range(min=10, max=3600)
+                    )
                 }
             ),
         )

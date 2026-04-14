@@ -31,10 +31,7 @@ async def async_setup_entry(
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     cameras: list[dict] = coordinator.data.get("cameras", [])
-    entities = [
-        CctvqlMotionBinarySensor(coordinator, entry, cam)
-        for cam in cameras
-    ]
+    entities = [CctvqlMotionBinarySensor(coordinator, entry, cam) for cam in cameras]
     async_add_entities(entities)
 
 
@@ -63,10 +60,7 @@ class CctvqlMotionBinarySensor(CoordinatorEntity, BinarySensorEntity):
         """Return True if there are any recent events for this camera."""
         events: list[dict] = self.coordinator.data.get("events", [])
         cam_lower = self._camera_name.lower()
-        return any(
-            e.get("camera", "").lower() == cam_lower
-            for e in events
-        )
+        return any(e.get("camera", "").lower() == cam_lower for e in events)
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -78,9 +72,7 @@ class CctvqlMotionBinarySensor(CoordinatorEntity, BinarySensorEntity):
             "camera_id": self._camera_id,
             "event_count": len(cam_events),
             "latest_event_time": latest.get("start_time") if latest else None,
-            "latest_label": (
-                (latest.get("objects") or [{}])[0].get("label") if latest else None
-            ),
+            "latest_label": ((latest.get("objects") or [{}])[0].get("label") if latest else None),
             "snapshot_url": latest.get("snapshot_url") if latest else None,
         }
 

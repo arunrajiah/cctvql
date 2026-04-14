@@ -86,13 +86,7 @@ class CctvqlCamerasOnlineSensor(_CctvqlSensorBase):
     @property
     def extra_state_attributes(self) -> dict:
         cam_health: list = self.coordinator.data.get("camera_health", [])
-        return {
-            "cameras": [
-                c["camera_name"]
-                for c in cam_health
-                if c.get("status") == "online"
-            ]
-        }
+        return {"cameras": [c["camera_name"] for c in cam_health if c.get("status") == "online"]}
 
 
 class CctvqlCamerasOfflineSensor(_CctvqlSensorBase):
@@ -111,13 +105,7 @@ class CctvqlCamerasOfflineSensor(_CctvqlSensorBase):
     @property
     def extra_state_attributes(self) -> dict:
         cam_health: list = self.coordinator.data.get("camera_health", [])
-        return {
-            "cameras": [
-                c["camera_name"]
-                for c in cam_health
-                if c.get("status") != "online"
-            ]
-        }
+        return {"cameras": [c["camera_name"] for c in cam_health if c.get("status") != "online"]}
 
 
 class CctvqlAdapterStatusSensor(_CctvqlSensorBase):

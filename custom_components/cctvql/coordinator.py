@@ -64,9 +64,7 @@ class CctvqlClient:
             cam_health_resp = await client.get(f"{self.base_url}/health/cameras")
             cam_health_resp.raise_for_status()
 
-            events_resp = await client.get(
-                f"{self.base_url}/events", params={"limit": 50}
-            )
+            events_resp = await client.get(f"{self.base_url}/events", params={"limit": 50})
             events_resp.raise_for_status()
 
         return {
@@ -80,13 +78,9 @@ class CctvqlClient:
     # Actions
     # ------------------------------------------------------------------
 
-    async def query(
-        self, query_text: str, session_id: str = "homeassistant"
-    ) -> dict[str, Any]:
+    async def query(self, query_text: str, session_id: str = "homeassistant") -> dict[str, Any]:
         """POST /query — natural language query."""
-        return await self._post(
-            "/query", json={"query": query_text, "session_id": session_id}
-        )
+        return await self._post("/query", json={"query": query_text, "session_id": session_id})
 
     async def ptz(
         self,
@@ -112,9 +106,7 @@ class CctvqlClient:
     # Helpers
     # ------------------------------------------------------------------
 
-    async def _get(
-        self, path: str, params: dict | None = None
-    ) -> Any:
+    async def _get(self, path: str, params: dict | None = None) -> Any:
         async with httpx.AsyncClient(headers=self._headers, timeout=_TIMEOUT) as client:
             resp = await client.get(f"{self.base_url}{path}", params=params)
             resp.raise_for_status()
