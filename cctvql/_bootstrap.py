@@ -36,6 +36,7 @@ def bootstrap(config_path: str = "config/config.yaml") -> None:
     _setup_logging(config.get("logging", {}))
     _setup_llms(config.get("llm", {}))
     _setup_adapters(config.get("adapters", {}))
+    _setup_notifications(config.get("notifications", {}))
 
 
 def _bootstrap_defaults() -> None:
@@ -173,6 +174,76 @@ def _create_adapter(adapter_type: str, cfg: dict):
         )
     else:
         raise ValueError(f"Unknown adapter type: {adapter_type}")
+
+
+def _setup_notifications(notif_config: dict) -> None:
+    """Register notification channels from config."""
+    if not notif_config:
+        return
+
+    from cctvql.notifications.registry import NotifierRegistry
+
+    # Webhook
+    for wh in notif_config.get("webhooks", []):
+        url = wh.get("url")
+        if url:
+            from cctvql.notifications.webhook import WebhookNotifier
+
+            NotifierRegistry.register(WebhookNotifier(url=url))
+            logger.debug("Registered webhook notifier: %s", url)
+
+    # Telegram
+    tg = notif_config.get("telegram", {})
+    if tg.get("bot_token") and tg.get("chat_id"):
+        from cctvql.notifications.telegram import TelegramNotifier
+
+        NotifierRegistry.register(
+            TelegramNotifier(bot_token=tg["bot_token"], chat_id=str(tg["chat_id"]))
+        )
+        logger.debug("Registered Telegram notifier")
+
+    # Slack
+    sl = notif_config.get("slack", {})
+    if sl.get("webhook_url"):
+        from cctvql.notifications.slack import SlackNotifier
+
+        NotifierRegistry.register(SlackNotifier(webhook_url=sl["webhook_url"]))
+        logger.debug("Registered Slack notifier")
+
+    # ntfy
+    nt = notif_config.get("ntfy", {})
+    if nt.get("topic"):
+        from cctvql.notifications.ntfy import NtfyNotifier
+
+        NotifierRegistry.register(
+            NtfyNotifier(
+                topic=nt["topic"],
+                server=nt.get("server", "https://ntfy.sh"),
+            )
+        )
+        logger.debug("Registered ntfy notifier: %s", nt["topic"])
+
+    # Email
+    em = notif_config.get("email", {})
+    if em.get("smtp_host") and em.get("from_addr") and em.get("to_addrs"):
+        from cctvql.notifications.email_notifier import EmailNotifier
+
+        NotifierRegistry.register(
+            EmailNotifier(
+                smtp_host=em["smtp_host"],
+                smtp_port=int(em.get("smtp_port", 587)),
+                username=em.get("username", ""),
+                password=em.get("password", ""),
+                from_addr=em["from_addr"],
+                to_addrs=em["to_addrs"] if isinstance(em["to_addrs"], list) else [em["to_addrs"]],
+                use_tls=bool(em.get("use_tls", True)),
+            )
+        )
+        logger.debug("Registered email notifier → %s", em["to_addrs"])
+
+    registered = len(NotifierRegistry.all())
+    if registered:
+        logger.info("Notifications: %d channel(s) registered", registered)
 
 
 def _setup_logging(log_config: dict) -> None:

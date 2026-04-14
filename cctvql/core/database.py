@@ -31,7 +31,7 @@ class Database:
     """Async SQLite database for cctvQL persistence."""
 
     def __init__(self, db_path: str | None = None) -> None:
-        self.db_path = db_path or os.environ.get("CCTVQL_DB_PATH", _DEFAULT_DB_PATH)
+        self.db_path: str = db_path or os.environ.get("CCTVQL_DB_PATH") or _DEFAULT_DB_PATH
         self._conn: Any = None  # aiosqlite.Connection when connected
 
     async def connect(self) -> None:

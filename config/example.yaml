@@ -75,3 +75,50 @@ adapters:
       username: admin
       password: ""
       channel_count: 4
+
+    # Option 5: Demo (no hardware required — for testing and development)
+    demo:
+      type: demo
+
+# ---------------------------------------------------------------------------
+# Database (SQLite persistence for session history and event log)
+# ---------------------------------------------------------------------------
+# database:
+#   path: cctvql.db        # default — relative to working directory
+#                          # set CCTVQL_DB_PATH env var to override at runtime
+
+# ---------------------------------------------------------------------------
+# Notifications
+# Channels are optional — configure only what you need.
+# ---------------------------------------------------------------------------
+# notifications:
+#
+#   # Webhook — POST JSON to any URL on alert
+#   webhooks:
+#     - url: https://your-server.example.com/cctv-alert
+#     - url: https://hooks.zapier.com/hooks/catch/...
+#
+#   # Telegram — send message to a bot chat
+#   telegram:
+#     bot_token: "123456:ABCdef..."   # from @BotFather
+#     chat_id: "-1001234567890"       # user ID or group chat ID
+#
+#   # Slack — Incoming Webhook URL
+#   slack:
+#     webhook_url: https://hooks.slack.com/services/T.../B.../...
+#
+#   # ntfy — push notifications via ntfy.sh (or self-hosted)
+#   ntfy:
+#     topic: my-cctv-alerts
+#     server: https://ntfy.sh        # omit to use ntfy.sh default
+#
+#   # Email via SMTP
+#   email:
+#     smtp_host: smtp.gmail.com
+#     smtp_port: 587
+#     username: you@gmail.com
+#     password: ""                   # or set CCTVQL_SMTP_PASSWORD env var
+#     from_addr: you@gmail.com
+#     to_addrs:
+#       - alerts@example.com
+#     use_tls: true

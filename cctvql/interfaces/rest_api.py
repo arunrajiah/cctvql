@@ -2,19 +2,25 @@
 cctvQL REST API Interface
 --------------------------
 FastAPI-based HTTP server exposing cctvQL as a REST API.
-Useful for integrating with Home Assistant, custom dashboards, or mobile apps.
 
 Endpoints:
-  POST /query          — Natural language query
-  GET  /cameras        — List cameras
-  GET  /events         — Get events (with filters)
-  GET  /health         — System health check
-  GET  /metrics        — Prometheus-compatible metrics
-  WS   /ws/events      — Real-time event streaming via WebSocket
-
-Usage:
-    cctvql serve --config config/config.yaml --port 8000
-    uvicorn cctvql.interfaces.rest_api:app --host 0.0.0.0 --port 8000
+  POST /query                  — Natural language query
+  GET  /cameras                — List cameras
+  POST /cameras/{id}/ptz       — PTZ camera control
+  GET  /events                 — Get events (with filters)
+  GET  /events/export          — Export events as CSV
+  GET  /health                 — System health check
+  GET  /health/cameras         — Per-camera health status
+  GET  /metrics                — Prometheus-compatible metrics
+  GET  /alerts                 — List alert rules
+  POST /alerts                 — Create alert rule
+  GET  /alerts/{id}            — Get alert rule
+  PATCH /alerts/{id}           — Update alert rule
+  DELETE /alerts/{id}          — Delete alert rule
+  DELETE /sessions/{id}        — Clear conversation session
+  POST /voice/query            — Voice query (audio → text answer)
+  POST /voice/synthesize       — Text-to-speech
+  WS   /ws/events              — Real-time event streaming via WebSocket
 """
 
 from __future__ import annotations
@@ -38,7 +44,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -47,11 +53,15 @@ from starlette.responses import Response
 
 from cctvql.adapters.base import AdapterRegistry
 from cctvql.core.alerts import AlertEngine, make_rule_from_context
+from cctvql.core.database import Database
+from cctvql.core.health_monitor import HealthMonitor
 from cctvql.core.multi_query import MultiSystemRouter
 from cctvql.core.nlp_engine import NLPEngine
 from cctvql.core.query_router import QueryRouter
 from cctvql.core.schema import Event
+from cctvql.core.session_store import SessionStore
 from cctvql.llm.base import LLMRegistry
+from cctvql.notifications.registry import NotifierRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +75,7 @@ _query_count: int = 0
 # API Key Authentication Middleware
 # ---------------------------------------------------------------------------
 
-_AUTH_SKIP_PATHS = {"/docs", "/openapi.json", "/redoc", "/health"}
+_AUTH_SKIP_PATHS = {"/docs", "/openapi.json", "/redoc", "/health", "/health/cameras"}
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
@@ -80,19 +90,15 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         api_key = os.environ.get("CCTVQL_API_KEY")
 
-        # No key configured — allow everything
         if not api_key:
             return await call_next(request)
 
-        # Skip auth for docs / health / WebSocket upgrade
         if request.url.path in _AUTH_SKIP_PATHS:
             return await call_next(request)
 
-        # WebSocket upgrade requests skip auth
         if request.headers.get("upgrade", "").lower() == "websocket":
             return await call_next(request)
 
-        # Validate key
         provided = request.headers.get("X-API-Key")
         if not provided or provided != api_key:
             return Response(
@@ -108,18 +114,60 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 # App setup
 # ---------------------------------------------------------------------------
 
+# Global singletons — set in lifespan, used in route handlers
+_db: Database | None = None
+_session_store: SessionStore | None = None
+_alert_engine: AlertEngine | None = None
+_health_monitor: HealthMonitor | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _alert_engine
-    adapter = AdapterRegistry.get_active()
-    connected = await adapter.connect()
-    if not connected:
-        logger.error("Failed to connect to CCTV adapter on startup")
+    global _db, _session_store, _alert_engine, _health_monitor
+
+    # ── 1. Adapter connection ────────────────────────────────────────────────
+    try:
+        adapter = AdapterRegistry.get_active()
+        connected = await adapter.connect()
+        if not connected:
+            logger.error("Failed to connect to CCTV adapter on startup")
+    except RuntimeError:
+        logger.warning("No active adapter configured — running in limited mode")
+
+    # ── 2. Database + session store ──────────────────────────────────────────
+    db_path = os.environ.get("CCTVQL_DB_PATH", "cctvql.db")
+    try:
+        _db = Database(db_path=db_path)
+        await _db.connect()
+        _session_store = SessionStore(_db)
+        logger.info("Database connected: %s", db_path)
+    except Exception as exc:
+        logger.warning("Database unavailable (%s) — sessions will be in-memory only", exc)
+        _db = None
+        _session_store = None
+
+    # ── 3. Alert engine ──────────────────────────────────────────────────────
     _alert_engine = AlertEngine(AdapterRegistry)
     await _alert_engine.start()
+
+    # ── 4. Health monitor ────────────────────────────────────────────────────
+    poll_interval = int(os.environ.get("CCTVQL_HEALTH_POLL_INTERVAL", "60"))
+    _health_monitor = HealthMonitor(
+        adapter_registry=AdapterRegistry,
+        notifier_registry=NotifierRegistry,
+        poll_interval=poll_interval,
+    )
+    await _health_monitor.start()
+
+    logger.info("cctvQL API started")
     yield
+
+    # ── Shutdown ─────────────────────────────────────────────────────────────
+    await _health_monitor.stop()
     await _alert_engine.stop()
+    if _db:
+        await _db.disconnect()
+    logger.info("cctvQL API stopped")
 
 
 app = FastAPI(
@@ -143,11 +191,6 @@ app.add_middleware(
 _static_dir = Path(__file__).parent / "static"
 if _static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
-
-# Global singletons (initialized on startup)
-_nlp: NLPEngine | None = None
-_router: QueryRouter | None = None
-_alert_engine: AlertEngine | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -213,18 +256,31 @@ class AlertRuleResponse(BaseModel):
     trigger_count: int
 
 
+class PTZRequest(BaseModel):
+    action: str  # left | right | up | down | zoom_in | zoom_out | stop
+    speed: int = 50  # 1–100
+    preset_id: int | None = None  # for preset moves
+
+
 # ---------------------------------------------------------------------------
-# Session store (in-memory, keyed by session_id)
+# Session management (DB-backed when available, in-memory fallback)
 # ---------------------------------------------------------------------------
 
-_sessions: dict[str, NLPEngine] = {}
+_in_memory_sessions: dict[str, NLPEngine] = {}
 
 
 def _get_nlp_for_session(session_id: str) -> NLPEngine:
-    if session_id not in _sessions:
+    """
+    Return (or create) an NLPEngine for the given session.
+
+    When a SessionStore is available the engine persists conversation history
+    to SQLite so it survives restarts.  Without a DB the engine falls back to
+    the in-memory dict.
+    """
+    if session_id not in _in_memory_sessions:
         llm = LLMRegistry.get_active()
-        _sessions[session_id] = NLPEngine(llm)
-    return _sessions[session_id]
+        _in_memory_sessions[session_id] = NLPEngine(llm, session_store=_session_store)
+    return _in_memory_sessions[session_id]
 
 
 # ---------------------------------------------------------------------------
@@ -235,8 +291,7 @@ _ws_clients: set[WebSocket] = set()
 
 
 async def _broadcast_event(event: Event) -> None:
-    """Serialize an Event to a JSON dict and broadcast to all connected
-    WebSocket clients."""
+    """Serialize an Event and broadcast to all connected WebSocket clients."""
     data = {
         "id": event.id,
         "camera": event.camera_name,
@@ -265,8 +320,6 @@ async def websocket_events(websocket: WebSocket) -> None:
     _ws_clients.add(websocket)
     try:
         while True:
-            # Keep the connection alive; we don't expect client messages
-            # but we must await to detect disconnection.
             await websocket.receive_text()
     except WebSocketDisconnect:
         pass
@@ -293,17 +346,14 @@ async def query(req: QueryRequest) -> QueryResponse:
 
     Set ``multi=true`` to fan-out the query across all registered adapters
     simultaneously and receive a merged response.
-
-    Example:
-        {"query": "Was there any motion on the driveway camera last night?"}
-        {"query": "Show me all cameras", "multi": true}
     """
     global _query_count
     try:
-        nlp = _get_nlp_for_session(req.session_id or "default")
+        sid = req.session_id or "default"
+        nlp = _get_nlp_for_session(sid)
         llm = LLMRegistry.get_active()
 
-        ctx = await nlp.parse(req.query)
+        ctx = await nlp.parse(req.query, session_id=sid)
 
         if req.multi:
             multi_router = MultiSystemRouter(llm)
@@ -316,13 +366,10 @@ async def query(req: QueryRequest) -> QueryResponse:
             )
             answer = await router.route(ctx)
 
+        # Log event to DB if available
         _query_count += 1
 
-        return QueryResponse(
-            answer=answer,
-            intent=ctx.intent,
-            session_id=req.session_id or "default",
-        )
+        return QueryResponse(answer=answer, intent=ctx.intent, session_id=sid)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
@@ -347,6 +394,72 @@ async def list_cameras() -> list[dict[str, Any]]:
         }
         for c in cameras
     ]
+
+
+@app.post("/cameras/{camera_id}/ptz")
+async def ptz_control(camera_id: str, body: PTZRequest) -> dict[str, Any]:
+    """
+    Send a PTZ (pan/tilt/zoom) command to a camera.
+
+    Actions: ``left`` | ``right`` | ``up`` | ``down`` |
+             ``zoom_in`` | ``zoom_out`` | ``stop`` | ``preset``
+
+    For preset moves supply ``preset_id`` in the request body.
+    """
+    adapter = AdapterRegistry.get_active()
+
+    # Resolve camera name from ID or name match
+    cameras = await adapter.list_cameras()
+    camera = next(
+        (c for c in cameras if c.id == camera_id or c.name.lower() == camera_id.lower()),
+        None,
+    )
+    if camera is None:
+        raise HTTPException(status_code=404, detail=f"Camera '{camera_id}' not found.")
+
+    if body.action == "preset":
+        if body.preset_id is None:
+            raise HTTPException(status_code=422, detail="preset_id required for preset action.")
+        supported = await adapter.ptz_preset(camera.name, body.preset_id)
+    else:
+        valid_actions = {"left", "right", "up", "down", "zoom_in", "zoom_out", "stop"}
+        if body.action not in valid_actions:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid action '{body.action}'. Valid: {', '.join(sorted(valid_actions))}",
+            )
+        supported = await adapter.ptz_move(camera.name, body.action, body.speed)
+
+    if not supported:
+        raise HTTPException(
+            status_code=501,
+            detail=f"PTZ is not supported by the '{adapter.name}' adapter.",
+        )
+
+    return {
+        "camera_id": camera_id,
+        "camera_name": camera.name,
+        "action": body.action,
+        "speed": body.speed,
+        "preset_id": body.preset_id,
+        "status": "sent",
+    }
+
+
+@app.get("/cameras/{camera_id}/ptz/presets")
+async def list_ptz_presets(camera_id: str) -> list[dict[str, Any]]:
+    """List available PTZ presets for a camera."""
+    adapter = AdapterRegistry.get_active()
+    cameras = await adapter.list_cameras()
+    camera = next(
+        (c for c in cameras if c.id == camera_id or c.name.lower() == camera_id.lower()),
+        None,
+    )
+    if camera is None:
+        raise HTTPException(status_code=404, detail=f"Camera '{camera_id}' not found.")
+
+    presets = await adapter.get_ptz_presets(camera.name)
+    return presets
 
 
 @app.get("/events")
@@ -384,6 +497,87 @@ async def get_events(
     ]
 
 
+@app.get("/events/export")
+async def export_events(
+    camera: str | None = Query(None),
+    label: str | None = Query(None),
+    limit: int = Query(1000, ge=1, le=10000),
+    fmt: str = Query("csv", description="Export format: csv | json"),
+) -> Response:
+    """
+    Export events as CSV or JSON.
+
+    Exports from the live adapter (not the database) so it reflects the
+    current state of your NVR.  Use ``fmt=json`` for machine-readable output.
+
+    Example:
+        GET /events/export?camera=Front+Door&label=person&limit=500
+        GET /events/export?fmt=json
+    """
+    adapter = AdapterRegistry.get_active()
+    events = await adapter.get_events(camera_name=camera, label=label, limit=limit)
+
+    if fmt == "json":
+        rows = [
+            {
+                "id": e.id,
+                "camera": e.camera_name,
+                "type": e.event_type.value,
+                "start_time": e.start_time.isoformat(),
+                "end_time": e.end_time.isoformat() if e.end_time else None,
+                "objects": [{"label": o.label, "confidence": o.confidence} for o in e.objects],
+                "zones": e.zones,
+                "snapshot_url": e.snapshot_url,
+                "clip_url": e.clip_url,
+            }
+            for e in events
+        ]
+        return Response(
+            content=json.dumps(rows, indent=2),
+            media_type="application/json",
+            headers={"Content-Disposition": "attachment; filename=events.json"},
+        )
+
+    # CSV
+    import csv
+    import io
+
+    buf = io.StringIO()
+    fieldnames = [
+        "id",
+        "camera",
+        "type",
+        "start_time",
+        "end_time",
+        "labels",
+        "zones",
+        "snapshot_url",
+        "clip_url",
+    ]
+    writer = csv.DictWriter(buf, fieldnames=fieldnames)
+    writer.writeheader()
+    for e in events:
+        writer.writerow(
+            {
+                "id": e.id,
+                "camera": e.camera_name,
+                "type": e.event_type.value,
+                "start_time": e.start_time.isoformat(),
+                "end_time": e.end_time.isoformat() if e.end_time else "",
+                "labels": ";".join(o.label for o in e.objects),
+                "zones": ";".join(e.zones),
+                "snapshot_url": e.snapshot_url or "",
+                "clip_url": e.clip_url or "",
+            }
+        )
+
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=events.csv"},
+    )
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Check health of connected adapter and LLM backend."""
@@ -402,11 +596,25 @@ async def health() -> HealthResponse:
     )
 
 
+@app.get("/health/cameras")
+async def camera_health() -> list[dict[str, Any]]:
+    """
+    Return per-camera health status from the background health monitor.
+
+    Each entry includes the camera name, current status (online/offline/degraded),
+    last check timestamp, consecutive failure count, and round-trip latency.
+    """
+    if _health_monitor is None:
+        raise HTTPException(status_code=503, detail="Health monitor is not running.")
+    return _health_monitor.get_status_dict()
+
+
 @app.delete("/sessions/{session_id}")
 async def clear_session(session_id: str) -> dict[str, str]:
-    """Clear conversation history for a session."""
-    if session_id in _sessions:
-        del _sessions[session_id]
+    """Clear conversation history for a session (in-memory and persistent)."""
+    _in_memory_sessions.pop(session_id, None)
+    if _session_store:
+        await _session_store.clear_session(session_id)
     return {"status": "cleared", "session_id": session_id}
 
 
@@ -416,7 +624,6 @@ async def clear_session(session_id: str) -> dict[str, str]:
 
 
 def _rule_to_response(rule) -> AlertRuleResponse:
-    """Convert an AlertRule dataclass to the Pydantic response model."""
     return AlertRuleResponse(
         id=rule.id,
         name=rule.name,
@@ -449,11 +656,7 @@ async def list_alert_rules() -> list[AlertRuleResponse]:
 
 @app.post("/alerts", response_model=AlertRuleResponse, status_code=201)
 async def create_alert_rule(body: AlertRuleCreate) -> AlertRuleResponse:
-    """
-    Create a new alert rule.
-
-    The engine will start evaluating it on the next poll cycle.
-    """
+    """Create a new alert rule. The engine evaluates it on the next poll cycle."""
     engine = _require_alert_engine()
     rule = make_rule_from_context(
         name=body.name,
@@ -494,8 +697,7 @@ async def update_alert_rule(rule_id: str, body: AlertRuleUpdate) -> AlertRuleRes
     """
     Update one or more fields of an alert rule.
 
-    Commonly used to enable or disable a rule:
-        PATCH /alerts/{id}  {"enabled": false}
+    To enable/disable: ``PATCH /alerts/{id}  {"enabled": false}``
     """
     engine = _require_alert_engine()
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
@@ -518,11 +720,8 @@ async def voice_query(
     session_id: str | None = Form(None),
 ) -> QueryResponse:
     """
-    Accept audio file, transcribe with Whisper, run NLP query, return text answer.
-    Optionally returns audio if Accept: audio/* header is set.
+    Accept an audio file, transcribe with Whisper, run an NLP query, return text answer.
     """
-    import os
-
     from cctvql.interfaces.voice import VoiceInterface
 
     voice = VoiceInterface(
@@ -533,13 +732,12 @@ async def voice_query(
     audio_bytes = await audio.read()
     text = await voice.transcribe(audio_bytes, audio_format=audio.content_type or "wav")
 
-    # reuse existing query logic
     sid = session_id or "default"
     nlp = _get_nlp_for_session(sid)
     router = QueryRouter(
         AdapterRegistry.get_active(), LLMRegistry.get_active(), alert_engine=_alert_engine
     )
-    ctx = await nlp.parse(text)
+    ctx = await nlp.parse(text, session_id=sid)
     answer = await router.route(ctx)
 
     return QueryResponse(answer=answer, intent=ctx.intent, session_id=sid)
@@ -549,11 +747,9 @@ async def voice_query(
 async def voice_synthesize(body: dict) -> Response:
     """
     Convert text to speech audio.
-    Body: {"text": "...", "voice": "alloy"}
-    Returns audio/mpeg bytes.
+    Body: ``{"text": "...", "voice": "alloy"}``
+    Returns ``audio/mpeg`` bytes.
     """
-    import os
-
     from cctvql.interfaces.voice import VoiceInterface
 
     voice = VoiceInterface(
@@ -579,14 +775,18 @@ async def metrics() -> PlainTextResponse:
     adapter_ok = await adapter.health_check()
     llm_ok = await llm.health_check()
 
+    camera_health = _health_monitor.get_status_dict() if _health_monitor else []
+    cameras_online = sum(1 for c in camera_health if c.get("status") == "online")
+    cameras_offline = sum(1 for c in camera_health if c.get("status") == "offline")
+
     lines = [
         "# HELP cctvql_queries_total Total number of queries processed.",
         "# TYPE cctvql_queries_total counter",
         f"cctvql_queries_total {_query_count}",
         "",
-        "# HELP cctvql_active_sessions Number of active sessions.",
+        "# HELP cctvql_active_sessions Number of active in-memory sessions.",
         "# TYPE cctvql_active_sessions gauge",
-        f"cctvql_active_sessions {len(_sessions)}",
+        f"cctvql_active_sessions {len(_in_memory_sessions)}",
         "",
         "# HELP cctvql_adapter_status Adapter health (1=healthy, 0=unhealthy).",
         "# TYPE cctvql_adapter_status gauge",
@@ -595,6 +795,18 @@ async def metrics() -> PlainTextResponse:
         "# HELP cctvql_llm_status LLM health (1=healthy, 0=unhealthy).",
         "# TYPE cctvql_llm_status gauge",
         f"cctvql_llm_status {1 if llm_ok else 0}",
+        "",
+        "# HELP cctvql_cameras_online Number of cameras currently online.",
+        "# TYPE cctvql_cameras_online gauge",
+        f"cctvql_cameras_online {cameras_online}",
+        "",
+        "# HELP cctvql_cameras_offline Number of cameras currently offline.",
+        "# TYPE cctvql_cameras_offline gauge",
+        f"cctvql_cameras_offline {cameras_offline}",
+        "",
+        "# HELP cctvql_alert_rules_total Total number of configured alert rules.",
+        "# TYPE cctvql_alert_rules_total gauge",
+        f"cctvql_alert_rules_total {len(_alert_engine.get_rules()) if _alert_engine else 0}",
         "",
     ]
 
