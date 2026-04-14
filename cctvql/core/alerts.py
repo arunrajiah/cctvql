@@ -21,7 +21,7 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from cctvql.core.database import Database
@@ -66,7 +66,7 @@ class AlertEngine:
 
     def __init__(
         self,
-        adapter_registry: type,  # type: AdapterRegistryType
+        adapter_registry: Any,
         poll_interval: int = 30,
         db: Database | None = None,
     ) -> None:

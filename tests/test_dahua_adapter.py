@@ -9,8 +9,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from cctvql.adapters.dahua import DahuaAdapter, _parse_dahua
-from cctvql.core.schema import CameraStatus
-
 
 # ---------------------------------------------------------------------------
 # HTTP mock helper

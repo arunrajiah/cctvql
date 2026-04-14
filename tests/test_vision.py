@@ -4,19 +4,18 @@ Tests for VisionAnalyzer (cctvql.core.vision).
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cctvql.core.vision import VisionAnalyzer
-from cctvql.llm.base import LLMMessage, LLMResponse
 from cctvql.core.schema import (
     DetectedObject,
     Event,
     EventType,
 )
-from datetime import datetime, timezone
-
+from cctvql.core.vision import VisionAnalyzer
+from cctvql.llm.base import LLMMessage, LLMResponse
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures

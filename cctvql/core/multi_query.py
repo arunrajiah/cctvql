@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
+from typing import Any
 
 from cctvql.adapters.base import AdapterRegistry
 from cctvql.core.schema import (
@@ -92,6 +93,7 @@ class MultiSystemRouter:
                     error=f"Adapter '{adapter_name}' not found in registry.",
                 )
 
+            data: Any = None
             if ctx.intent == "list_cameras":
                 data = await adapter.list_cameras()
             elif ctx.intent == "get_camera":

@@ -181,9 +181,11 @@ class VoiceInterface:
             tmp_path = tmp.name
 
         loop = asyncio.get_event_loop()
+        fw_model = self._fw_model  # capture for closure — mypy can't narrow self attrs
 
         def _run() -> str:
-            segments, _info = self._fw_model.transcribe(tmp_path, language=self.language)
+            assert fw_model is not None
+            segments, _info = fw_model.transcribe(tmp_path, language=self.language)
             return " ".join(seg.text for seg in segments).strip()
 
         try:

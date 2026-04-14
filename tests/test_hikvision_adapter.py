@@ -11,7 +11,6 @@ import pytest
 from cctvql.adapters.hikvision import HikvisionAdapter
 from cctvql.core.schema import CameraStatus
 
-
 # ---------------------------------------------------------------------------
 # Sample XML fixtures
 # ---------------------------------------------------------------------------
@@ -294,7 +293,6 @@ def test_fmt_time():
 
 
 def test_parse_isapi_time_standard():
-    from datetime import datetime
 
     result = HikvisionAdapter._parse_isapi_time("2026-01-15T10:00:00+00:00")
     assert result.year == 2026

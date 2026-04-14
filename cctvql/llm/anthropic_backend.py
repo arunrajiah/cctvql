@@ -47,7 +47,7 @@ class AnthropicBackend(BaseLLM):
         self._client = httpx.AsyncClient(
             timeout=timeout,
             headers={
-                "x-api-key": self.api_key,
+                "x-api-key": str(self.api_key),
                 "anthropic-version": self.API_VERSION,
                 "Content-Type": "application/json",
             },
