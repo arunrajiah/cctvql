@@ -288,6 +288,87 @@ On first startup, the list may be empty until the first poll completes.
 
 ---
 
+## GET /anomalies
+
+Detect statistically unusual activity across cameras.
+
+Compares a recent observe window against a historical baseline of the same hour-of-day. Returns both **spikes** (more events than normal) and **silences** (unusually quiet periods).
+
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `hours` | integer | `24` | Observe window in hours (1–168) |
+| `baseline_days` | integer | `7` | Days of history used to build the normal baseline (1–30) |
+| `camera` | string | — | Restrict to a specific camera name |
+| `threshold` | float | `2.0` | Z-score threshold above which activity is anomalous (0.5–10.0) |
+
+**Example:**
+```bash
+# Last 24 hours with default threshold
+curl "http://localhost:8000/anomalies"
+
+# Last 6 hours, Front Door only, more sensitive
+curl "http://localhost:8000/anomalies?hours=6&camera=Front+Door&threshold=1.5"
+```
+
+**Response:**
+```json
+{
+  "observe_start": "2026-04-13T10:00",
+  "observe_end":   "2026-04-14T10:00",
+  "baseline_days": 7,
+  "threshold": 2.0,
+  "total": 2,
+  "high": 1,
+  "medium": 1,
+  "low": 0,
+  "anomalies": [
+    {
+      "camera": "Front Door",
+      "period_start": "2026-04-14T02:00",
+      "period_end":   "2026-04-14T03:00",
+      "event_count": 18,
+      "expected_count": 1.4,
+      "z_score": 5.83,
+      "anomaly_type": "spike",
+      "severity": "high",
+      "top_labels": ["person", "car"]
+    },
+    {
+      "camera": "Backyard",
+      "period_start": "2026-04-14T08:00",
+      "period_end":   "2026-04-14T09:00",
+      "event_count": 0,
+      "expected_count": 4.2,
+      "z_score": -2.31,
+      "anomaly_type": "silence",
+      "severity": "medium",
+      "top_labels": []
+    }
+  ]
+}
+```
+
+**Severity bands:**
+
+| Severity | Z-score range |
+|----------|---------------|
+| `low` | threshold ≤ \|z\| < 2× threshold |
+| `medium` | 2× threshold ≤ \|z\| < 3× threshold |
+| `high` | \|z\| ≥ 3× threshold |
+
+Results are sorted high → medium → low, then chronologically.
+
+**Natural language equivalent:**
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Anything unusual today?"}'
+```
+
+---
+
 ## GET /events/timeline
 
 Returns events grouped into time buckets for timeline visualisation. Powers the `/timeline` web UI.

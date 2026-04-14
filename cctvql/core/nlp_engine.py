@@ -40,6 +40,7 @@ You have access to these intents:
 - set_alert             → Create an alert rule (needs: label, camera_name or zone, schedule)
 - list_alerts           → Show configured alert rules
 - delete_alert          → Remove an alert rule (needs: alert_id or description)
+- detect_anomalies      → Find unusual activity patterns (optional: camera_name, hours window)
 - ptz_move              → Pan/tilt/zoom a camera (needs: camera_name,
                           action: left|right|up|down|zoom_in|zoom_out|stop, speed: 1-100)
 - ptz_preset            → Go to a PTZ preset position (needs: camera_name, preset_id)
@@ -65,6 +66,7 @@ Time interpretation rules:
 - "last hour"  = now minus 60 minutes
 - "this morning" = today 06:00 to 12:00
 - Always use the current datetime as reference.
+- For detect_anomalies: use start_time/end_time for the observe window. Default to last 24h.
 
 Current datetime: {current_datetime}
 """
