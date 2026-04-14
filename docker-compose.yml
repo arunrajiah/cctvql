@@ -9,10 +9,23 @@ services:
       - "8000:8000"
     volumes:
       - ./config/config.yaml:/app/config/config.yaml:ro
+      - cctvql_data:/data
     environment:
-      # Uncomment and set if using cloud LLM backends
+      # Database — persist sessions and event log across restarts
+      CCTVQL_DB_PATH: /data/cctvql.db
+
+      # Health monitor — how often to poll camera status (seconds)
+      CCTVQL_HEALTH_POLL_INTERVAL: "60"
+
+      # Optional: protect the API with a key (set to require X-API-Key header)
+      # CCTVQL_API_KEY: ""
+
+      # Cloud LLM backends — use env vars instead of putting keys in config.yaml
       # OPENAI_API_KEY: ""
       # ANTHROPIC_API_KEY: ""
+
+      # Email notifications — set SMTP password here instead of config.yaml
+      # CCTVQL_SMTP_PASSWORD: ""
     networks:
       - cctvql-net
 
@@ -38,6 +51,7 @@ services:
 
 volumes:
   ollama_data:
+  cctvql_data:    # persistent SQLite database
 
 networks:
   cctvql-net:

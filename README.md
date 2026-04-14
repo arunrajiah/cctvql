@@ -45,17 +45,22 @@ No dashboards. No complex queries. Just ask.
 ## Features
 
 - **Natural language queries** — ask about events, cameras, clips, and system health in plain English
-- **Multi-turn conversations** — context-aware follow-up questions work naturally
-- **Vendor-agnostic** — adapter pattern supports any CCTV system; ships with Frigate + ONVIF
+- **Multi-turn conversations** — context-aware follow-up questions backed by SQLite session persistence
+- **Vendor-agnostic** — adapter pattern supports any CCTV system; ships with Frigate, ONVIF, Hikvision, Dahua
 - **Pluggable LLM backends** — Ollama (local/private), OpenAI, Anthropic, or any OpenAI-compatible API
 - **REST API** — integrate with Home Assistant, Grafana, custom dashboards, or mobile apps
+- **PTZ control** — pan, tilt, zoom and preset recall via REST API for supported cameras
+- **Event export** — download event history as CSV or JSON from `/events/export`
+- **Alert rules** — create rules to notify when specific labels appear on specific cameras in time windows
+- **Multi-channel notifications** — Telegram, Slack, ntfy, email, and webhook; all fire concurrently
 - **WebSocket streaming** — real-time event push to any connected client via `ws://host/ws/events`
 - **Prometheus metrics** — `/metrics` endpoint for Grafana, alerting, and observability
+- **Camera health monitoring** — background poller tracks per-camera online/offline status
 - **Optional API key auth** — protect your endpoint with `CCTVQL_API_KEY` env var
 - **Demo adapter** — try cctvQL without any hardware; realistic mock data built-in
 - **Interactive CLI** — terminal-based conversational REPL
 - **Real-time events** — MQTT subscription for live alerts (Frigate)
-- **Docker-ready** — running in under 5 minutes
+- **Docker-ready** — running in under 5 minutes with persistent SQLite storage
 
 ---
 
@@ -144,6 +149,8 @@ cctvql chat
 |-------|-------|
 | Configuration reference | [docs/configuration.md](docs/configuration.md) |
 | REST API reference | [docs/api.md](docs/api.md) |
+| Notifications setup | [docs/notifications.md](docs/notifications.md) |
+| Session & event persistence | [docs/persistence.md](docs/persistence.md) |
 | Writing an adapter | [docs/adapters.md](docs/adapters.md) |
 | LLM backend setup | [docs/llm-backends.md](docs/llm-backends.md) |
 | Home Assistant integration | [docs/home-assistant.md](docs/home-assistant.md) |
@@ -203,16 +210,33 @@ adapters:
       type: frigate
       host: http://192.168.1.100:5000
       mqtt_host: 192.168.1.100      # optional, for real-time events
+
+# Optional: alert notifications (any combination of channels)
+notifications:
+  telegram:
+    bot_token: "123456:ABC-DEF..."
+    chat_id: "-1001234567890"
+  slack:
+    webhook_url: "https://hooks.slack.com/services/..."
+  ntfy:
+    topic: my-cctvql-alerts
 ```
 
-See [docs/configuration.md](docs/configuration.md) for the full reference.
+**Database path** (conversation history + event log):
+```bash
+export CCTVQL_DB_PATH=/data/cctvql.db
+```
+
+See [docs/configuration.md](docs/configuration.md) for the full reference.  
+Notification channels: [docs/notifications.md](docs/notifications.md).  
+Session persistence: [docs/persistence.md](docs/persistence.md).
 
 ---
 
 ## REST API
 
 ```bash
-# Natural language query (supports multi-turn sessions)
+# Natural language query (multi-turn, session history persisted to SQLite)
 POST /query
 {"query": "Did anyone come to the front door after midnight?", "session_id": "my-session"}
 
@@ -220,15 +244,36 @@ POST /query
 GET /cameras
 
 # Get events with filters
-GET /events?camera=driveway&label=person&after=1712000000&limit=10
+GET /events?camera=driveway&label=person&limit=10
+
+# Export events as CSV or JSON
+GET /events/export
+GET /events/export?fmt=json&camera=Front+Door&label=person
+
+# PTZ control (pan/tilt/zoom)
+POST /cameras/{camera_id}/ptz
+{"action": "left", "speed": 50}
+
+# PTZ presets
+GET /cameras/{camera_id}/ptz/presets
 
 # System health
 GET /health
 
+# Per-camera health status
+GET /health/cameras
+
+# Alert rules (CRUD)
+GET    /alerts
+POST   /alerts
+GET    /alerts/{id}
+PATCH  /alerts/{id}
+DELETE /alerts/{id}
+
 # Prometheus metrics (for Grafana / alerting)
 GET /metrics
 
-# Clear conversation session
+# Clear conversation session (also removes from database)
 DELETE /sessions/{session_id}
 ```
 
@@ -240,6 +285,8 @@ ws://localhost:8000/ws/events
 Optional API key auth — set `CCTVQL_API_KEY` env var to require `X-API-Key` header on all requests.
 
 Interactive Swagger docs available at `http://localhost:8000/docs`.
+
+See [docs/api.md](docs/api.md) for full endpoint documentation.
 
 ---
 
@@ -373,6 +420,12 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 - [x] Multi-system queries (query across multiple NVRs simultaneously)
 - [x] Alert rules via natural language ("notify me when a person enters Zone A after 10pm")
 - [x] Voice interface (Whisper STT + TTS output)
+- [x] Multi-channel notifications — Telegram, Slack, ntfy, email, webhook
+- [x] PTZ control via REST API (pan, tilt, zoom, presets)
+- [x] Session persistence — conversation history survives server restarts (SQLite)
+- [x] Event log — every detection written to SQLite; exportable as CSV/JSON
+- [x] Camera health monitoring — per-camera online/offline status with background polling
+- [x] Prometheus metrics — cameras online/offline, alert rule count
 - [ ] Home Assistant custom integration
 - [ ] ONVIF discovery — auto-detect cameras on the local network
 - [ ] Event timeline UI — visual timeline of events across all cameras

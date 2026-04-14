@@ -1,9 +1,22 @@
 # REST API Reference
 
-cctvQL exposes a REST API when running in `serve` mode. All endpoints return JSON.
+cctvQL exposes a REST API when running in `serve` mode. All endpoints return JSON unless otherwise stated.
 
 **Base URL:** `http://localhost:8000` (default)  
 **Interactive docs:** `http://localhost:8000/docs` (Swagger UI)
+
+---
+
+## Authentication
+
+Set the `CCTVQL_API_KEY` environment variable to enable API key authentication.
+All requests must then include the header:
+
+```
+X-API-Key: your-api-key-here
+```
+
+If the variable is not set, all endpoints are open (suitable for private network deployments).
 
 ---
 
@@ -22,7 +35,7 @@ Submit a natural language query. Supports multi-turn conversation via `session_i
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `query` | string | ✅ | Natural language question |
-| `session_id` | string | ❌ | Session ID for multi-turn conversation (default: `"default"`) |
+| `session_id` | string | ❌ | Session ID for multi-turn conversation (auto-generated if omitted) |
 
 **Response:**
 ```json
@@ -45,6 +58,9 @@ curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
   -d '{"query": "Any motion on the first one today?", "session_id": "s1"}'
 ```
+
+> Conversation history is persisted to SQLite when the database is configured.
+> Sessions survive server restarts. See [persistence.md](persistence.md).
 
 ---
 
@@ -69,6 +85,77 @@ List all cameras in the connected system.
 
 ---
 
+## POST /cameras/{camera_id}/ptz
+
+Send a PTZ (Pan / Tilt / Zoom) command to a camera.
+
+> Only adapters that support PTZ will execute the command. The demo adapter returns `501 Not Implemented`.
+
+**Path parameter:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `camera_id` | Camera ID as returned by `GET /cameras` |
+
+**Request body:**
+```json
+{
+  "action": "left",
+  "speed": 50
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `action` | string | ✅ | One of: `left`, `right`, `up`, `down`, `zoom_in`, `zoom_out`, `home`, `preset` |
+| `speed` | integer | ❌ | Movement speed 1–100 (default: 50) |
+| `preset_id` | integer | ❌ | Required when `action` is `preset` |
+
+**Response:**
+```json
+{"status": "ok", "camera_id": "front_door", "action": "left"}
+```
+
+**Error responses:**
+- `404` — camera not found
+- `422` — invalid action or missing `preset_id`
+- `501` — PTZ not supported by the active adapter
+
+**Examples:**
+```bash
+# Pan left
+curl -X POST http://localhost:8000/cameras/front_door/ptz \
+  -H "Content-Type: application/json" \
+  -d '{"action": "left", "speed": 30}'
+
+# Go to preset 2
+curl -X POST http://localhost:8000/cameras/front_door/ptz \
+  -H "Content-Type: application/json" \
+  -d '{"action": "preset", "preset_id": 2}'
+
+# Return to home position
+curl -X POST http://localhost:8000/cameras/front_door/ptz \
+  -H "Content-Type: application/json" \
+  -d '{"action": "home"}'
+```
+
+---
+
+## GET /cameras/{camera_id}/ptz/presets
+
+List saved PTZ presets for a camera.
+
+**Response:**
+```json
+[
+  {"id": 1, "name": "Home"},
+  {"id": 2, "name": "Gate"},
+  {"id": 3, "name": "Driveway"}
+]
+```
+
+---
+
 ## GET /events
 
 Fetch events with optional filters.
@@ -77,7 +164,7 @@ Fetch events with optional filters.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `camera` | string | Camera name or ID |
+| `camera` | string | Camera name or ID (partial match) |
 | `label` | string | Object label (`person`, `car`, `dog`, etc.) |
 | `zone` | string | Zone name |
 | `after` | integer | Unix timestamp — events after this time |
@@ -111,6 +198,48 @@ curl "http://localhost:8000/events?camera=driveway&label=person&after=$(date -d 
 
 ---
 
+## GET /events/export
+
+Export events as a downloadable CSV or JSON file.
+
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `fmt` | string | `csv` | Export format: `csv` or `json` |
+| `camera` | string | — | Filter by camera name (partial match) |
+| `label` | string | — | Filter by object label |
+| `limit` | integer | 1000 | Max events to export |
+
+**CSV export (default):**
+```bash
+curl "http://localhost:8000/events/export" -o events.csv
+```
+
+The CSV includes headers:
+```
+id,camera,type,start_time,end_time,objects,zones,snapshot_url,clip_url
+```
+
+Response headers:
+```
+Content-Type: text/csv; charset=utf-8
+Content-Disposition: attachment; filename="cctvql_events.csv"
+```
+
+**JSON export:**
+```bash
+curl "http://localhost:8000/events/export?fmt=json" -o events.json
+```
+
+**Filtered export:**
+```bash
+# Export only Front Door person detections
+curl "http://localhost:8000/events/export?camera=Front+Door&label=person&limit=500" -o persons.csv
+```
+
+---
+
 ## GET /health
 
 Check health of the adapter and LLM backend.
@@ -130,9 +259,151 @@ Check health of the adapter and LLM backend.
 
 ---
 
+## GET /health/cameras
+
+Get the latest health status for each individual camera.
+
+The health monitor polls the adapter every `CCTVQL_HEALTH_POLL_INTERVAL` seconds (default: 60).
+On first startup, the list may be empty until the first poll completes.
+
+**Response:**
+```json
+[
+  {
+    "camera_id": "front_door",
+    "camera_name": "Front Door",
+    "status": "online",
+    "last_checked": "2026-04-14T09:31:02",
+    "latency_ms": 42
+  },
+  {
+    "camera_id": "backyard",
+    "camera_name": "Backyard",
+    "status": "offline",
+    "last_checked": "2026-04-14T09:31:03",
+    "latency_ms": null
+  }
+]
+```
+
+---
+
+## Alert Rules
+
+### GET /alerts
+
+List all configured alert rules.
+
+**Response:**
+```json
+[
+  {
+    "id": "rule_abc123",
+    "name": "Night Person Alert",
+    "description": "Alert when person detected after 10pm",
+    "camera_name": "Front Door",
+    "label": "person",
+    "time_start": "22:00",
+    "time_end": "06:00",
+    "webhook_url": "https://example.com/hook",
+    "enabled": true,
+    "created_at": "2026-04-13T18:00:00"
+  }
+]
+```
+
+### POST /alerts
+
+Create a new alert rule.
+
+**Request body:**
+```json
+{
+  "name": "Night Person Alert",
+  "description": "Alert when person detected after 10pm",
+  "camera_name": "Front Door",
+  "label": "person",
+  "time_start": "22:00",
+  "time_end": "06:00",
+  "webhook_url": "https://example.com/hook"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | ✅ | Human-readable rule name |
+| `description` | string | ❌ | Longer description |
+| `camera_name` | string | ❌ | Restrict to a specific camera (any camera if omitted) |
+| `label` | string | ❌ | Restrict to a specific object label |
+| `time_start` | string | ❌ | Active window start (`HH:MM`, 24h) |
+| `time_end` | string | ❌ | Active window end (`HH:MM`, 24h) |
+| `webhook_url` | string | ❌ | Fire a POST to this URL on match |
+
+Returns `201 Created` with the created rule including its `id`.
+
+### GET /alerts/{rule_id}
+
+Get a specific alert rule.
+
+Returns `404` if the rule does not exist.
+
+### PATCH /alerts/{rule_id}
+
+Update an alert rule (partial update — only send fields you want to change).
+
+```bash
+# Disable a rule
+curl -X PATCH http://localhost:8000/alerts/rule_abc123 \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+```
+
+### DELETE /alerts/{rule_id}
+
+Delete an alert rule permanently.
+
+---
+
+## GET /metrics
+
+Prometheus-compatible metrics endpoint for Grafana, alerting, and observability.
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+**Exposed metrics:**
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `cctvql_queries_total` | counter | Total NLP queries processed |
+| `cctvql_active_sessions` | gauge | Number of active conversation sessions |
+| `cctvql_adapter_status` | gauge | 1 = adapter healthy, 0 = degraded |
+| `cctvql_llm_status` | gauge | 1 = LLM healthy, 0 = degraded |
+| `cctvql_cameras_online` | gauge | Cameras currently reporting online |
+| `cctvql_cameras_offline` | gauge | Cameras currently reporting offline |
+| `cctvql_alert_rules_total` | gauge | Number of configured alert rules |
+
+**Example output:**
+```
+# HELP cctvql_queries_total Total NLP queries processed
+# TYPE cctvql_queries_total counter
+cctvql_queries_total 47
+
+# HELP cctvql_cameras_online Cameras currently online
+# TYPE cctvql_cameras_online gauge
+cctvql_cameras_online 3
+
+# HELP cctvql_cameras_offline Cameras currently offline
+# TYPE cctvql_cameras_offline gauge
+cctvql_cameras_offline 1
+```
+
+---
+
 ## DELETE /sessions/{session_id}
 
-Clear conversation history for a session.
+Clear conversation history for a session. Also removes the session from the database if persistence is enabled.
 
 ```bash
 curl -X DELETE http://localhost:8000/sessions/my-session
@@ -141,6 +412,36 @@ curl -X DELETE http://localhost:8000/sessions/my-session
 **Response:**
 ```json
 {"status": "cleared", "session_id": "my-session"}
+```
+
+Returns `200` even if the session did not exist.
+
+---
+
+## WebSocket — GET /ws/events
+
+Real-time event stream. Each message is a JSON object representing a new event from the adapter.
+
+```
+ws://localhost:8000/ws/events
+```
+
+**Example (wscat):**
+```bash
+wscat -c ws://localhost:8000/ws/events
+```
+
+**Sample message:**
+```json
+{
+  "id": "evt_001",
+  "camera": "Front Door",
+  "type": "object_detected",
+  "start_time": "2026-04-14T09:44:12",
+  "objects": [{"label": "person", "confidence": 0.94}],
+  "zones": ["porch"],
+  "snapshot_url": "http://192.168.1.100:5000/api/events/evt_001/snapshot.jpg"
+}
 ```
 
 ---
