@@ -11,9 +11,13 @@ import json
 import logging
 import re
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from cctvql.core.schema import QueryContext
 from cctvql.llm.base import BaseLLM, LLMMessage
+
+if TYPE_CHECKING:
+    from cctvql.core.session_store import SessionStore
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +40,9 @@ You have access to these intents:
 - set_alert             → Create an alert rule (needs: label, camera_name or zone, schedule)
 - list_alerts           → Show configured alert rules
 - delete_alert          → Remove an alert rule (needs: alert_id or description)
+- ptz_move              → Pan/tilt/zoom a camera (needs: camera_name,
+                          action: left|right|up|down|zoom_in|zoom_out|stop, speed: 1-100)
+- ptz_preset            → Go to a PTZ preset position (needs: camera_name, preset_id)
 - unknown               → Query cannot be mapped to any intent
 
 Always respond with ONLY valid JSON in this format:
@@ -69,23 +76,27 @@ class NLPEngine:
     and parses user queries into QueryContext.
 
     Args:
-        llm: The LLM backend to use for parsing.
+        llm:           The LLM backend to use for parsing.
+        session_store: Optional persistent session store for conversation memory.
     """
 
-    def __init__(self, llm: BaseLLM) -> None:
+    def __init__(self, llm: BaseLLM, session_store: SessionStore | None = None) -> None:
         self.llm = llm
+        self._session_store = session_store
         self._history: list[LLMMessage] = []
 
     def reset(self) -> None:
-        """Clear conversation history."""
+        """Clear in-memory conversation history."""
         self._history = []
 
-    async def parse(self, user_query: str) -> QueryContext:
+    async def process(self, user_query: str, session_id: str = "default") -> QueryContext:
         """
-        Parse a natural language query into a QueryContext.
+        Parse a natural language query into a QueryContext, optionally persisting
+        conversation history via the session store.
 
         Args:
             user_query: Raw user input string.
+            session_id: Session identifier for history persistence.
 
         Returns:
             QueryContext with extracted intent and parameters.
@@ -96,9 +107,17 @@ class NLPEngine:
             content=SYSTEM_PROMPT.format(current_datetime=now.isoformat()),
         )
 
-        self._history.append(LLMMessage(role="user", content=user_query))
+        # Load persistent history if session_store is configured
+        prefix_messages: list[LLMMessage] = []
+        if self._session_store:
+            history = await self._session_store.get_history(session_id)
+            for msg in history[-10:]:
+                prefix_messages.append(LLMMessage(role=msg["role"], content=msg["content"]))
 
-        messages = [system_msg] + self._history
+        user_msg = LLMMessage(role="user", content=user_query)
+        self._history.append(user_msg)
+
+        messages = [system_msg] + prefix_messages + [user_msg]
 
         try:
             response = await self.llm.complete(messages, temperature=0.1, max_tokens=512)
@@ -106,15 +125,30 @@ class NLPEngine:
             logger.debug("LLM raw response: %s", raw)
 
             parsed = self._extract_json(raw)
-            ctx = self._build_context(parsed, user_query, now)
+            ctx = self._build_context(parsed, user_query, now, session_id=session_id)
 
             self._history.append(LLMMessage(role="assistant", content=raw))
+
+            # Persist to session store
+            if self._session_store:
+                await self._session_store.add_message(session_id, "user", user_query)
+                await self._session_store.add_message(session_id, "assistant", raw)
+
             return ctx
 
         except Exception as exc:
             logger.error("NLP parsing failed: %s", exc)
-            self._history.pop()  # remove failed user turn
-            return QueryContext(intent="unknown", raw_query=user_query)
+            if self._history and self._history[-1].role == "user":
+                self._history.pop()  # remove failed user turn
+            return QueryContext(intent="unknown", raw_query=user_query, session_id=session_id)
+
+    async def parse(self, user_query: str, session_id: str = "default") -> QueryContext:
+        """
+        Parse a natural language query into a QueryContext.
+
+        Delegates to process() for full session support.
+        """
+        return await self.process(user_query, session_id=session_id)
 
     def _extract_json(self, text: str) -> dict:
         """Extract JSON from LLM output, even if wrapped in markdown."""
@@ -124,7 +158,13 @@ class NLPEngine:
             text = match.group(1)
         return json.loads(text)
 
-    def _build_context(self, data: dict, raw_query: str, now: datetime) -> QueryContext:
+    def _build_context(
+        self,
+        data: dict,
+        raw_query: str,
+        now: datetime,
+        session_id: str = "default",
+    ) -> QueryContext:
         """Convert parsed JSON dict into a QueryContext."""
         event_id = data.get("event_id")
         return QueryContext(
@@ -137,9 +177,13 @@ class NLPEngine:
             end_time=self._parse_dt(data.get("end_time"), now),
             limit=int(data.get("limit", 20)),
             raw_query=raw_query,
+            session_id=session_id,
             extra={
                 "explanation": data.get("explanation", ""),
                 "event_id": event_id,
+                "action": data.get("action"),
+                "speed": data.get("speed", 50),
+                "preset_id": data.get("preset_id"),
             },
         )
 

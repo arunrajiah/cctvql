@@ -118,6 +118,42 @@ class BaseAdapter(ABC):
         """Return True if the system is reachable."""
         return True
 
+    async def ptz_move(self, camera_name: str, action: str, speed: int = 50) -> bool:
+        """
+        Pan/tilt/zoom a camera.
+
+        Args:
+            camera_name: Camera to control.
+            action:      One of left|right|up|down|zoom_in|zoom_out|stop.
+            speed:       Movement speed 1–100 (default: 50).
+
+        Returns:
+            True if the command was accepted, False if PTZ is not supported.
+        """
+        return False
+
+    async def ptz_preset(self, camera_name: str, preset_id: int) -> bool:
+        """
+        Move camera to a named PTZ preset.
+
+        Args:
+            camera_name: Camera to control.
+            preset_id:   Numeric preset identifier.
+
+        Returns:
+            True if the command was accepted, False if PTZ is not supported.
+        """
+        return False
+
+    async def get_ptz_presets(self, camera_name: str) -> list[dict]:
+        """
+        Return available PTZ presets for a camera.
+
+        Returns:
+            list of {"id": int, "name": str} dicts.
+        """
+        return []
+
 
 class AdapterRegistry:
     """Maps adapter names to instances for multi-system setups."""

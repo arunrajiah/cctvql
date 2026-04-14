@@ -197,6 +197,7 @@ class QueryContext:
     limit: int = 20
     raw_query: str = ""
     event_id: str | None = None
+    session_id: str = "default"
     extra: dict[str, Any] = field(default_factory=dict)
 
 

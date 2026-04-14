@@ -66,6 +66,8 @@ class QueryRouter:
             "set_alert": self._handle_set_alert,
             "list_alerts": self._handle_list_alerts,
             "delete_alert": self._handle_delete_alert,
+            "ptz_move": self._handle_ptz_move,
+            "ptz_preset": self._handle_ptz_preset,
         }
 
     async def route(self, ctx: QueryContext) -> str:
@@ -400,6 +402,64 @@ class QueryRouter:
             success=True,
             intent="delete_alert",
             summary=f"No alert rule found with ID `{rule_id}`.",
+        )
+
+    async def _handle_ptz_move(self, ctx: QueryContext) -> QueryResult:
+        """Execute a PTZ move command."""
+        camera_name = ctx.camera_name or ctx.extra.get("camera_name") or ""
+        action = ctx.extra.get("action") or "stop"
+        speed = int(ctx.extra.get("speed") or 50)
+
+        if not camera_name:
+            return QueryResult(
+                success=False,
+                intent="ptz_move",
+                error="Please specify which camera to move.",
+            )
+
+        supported = await self.adapter.ptz_move(camera_name, action, speed)
+        if not supported:
+            return QueryResult(
+                success=False,
+                intent="ptz_move",
+                error=f"PTZ control is not supported by the '{self.adapter.name}' adapter.",
+            )
+        return QueryResult(
+            success=True,
+            intent="ptz_move",
+            summary=f"PTZ command '{action}' sent to **{camera_name}** (speed: {speed}).",
+        )
+
+    async def _handle_ptz_preset(self, ctx: QueryContext) -> QueryResult:
+        """Move a camera to a PTZ preset."""
+        camera_name = ctx.camera_name or ctx.extra.get("camera_name") or ""
+        preset_id_raw = ctx.extra.get("preset_id")
+
+        if not camera_name:
+            return QueryResult(
+                success=False,
+                intent="ptz_preset",
+                error="Please specify which camera to move to a preset.",
+            )
+        if preset_id_raw is None:
+            return QueryResult(
+                success=False,
+                intent="ptz_preset",
+                error="Please specify a preset ID.",
+            )
+
+        preset_id = int(preset_id_raw)
+        supported = await self.adapter.ptz_preset(camera_name, preset_id)
+        if not supported:
+            return QueryResult(
+                success=False,
+                intent="ptz_preset",
+                error=f"PTZ presets are not supported by the '{self.adapter.name}' adapter.",
+            )
+        return QueryResult(
+            success=True,
+            intent="ptz_preset",
+            summary=f"Camera **{camera_name}** moved to preset {preset_id}.",
         )
 
     # ------------------------------------------------------------------

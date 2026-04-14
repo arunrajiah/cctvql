@@ -23,10 +23,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, time
 from typing import TYPE_CHECKING
 
-import httpx
-
 if TYPE_CHECKING:
-    pass
+    from cctvql.core.database import Database
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +68,11 @@ class AlertEngine:
         self,
         adapter_registry: type,  # type: AdapterRegistryType
         poll_interval: int = 30,
+        db: Database | None = None,
     ) -> None:
         self._registry = adapter_registry
         self._poll_interval = poll_interval
+        self._db = db
         self._rules: dict[str, AlertRule] = {}
         self._seen_event_ids: set[str] = set()
         self._task: asyncio.Task | None = None
@@ -194,31 +194,12 @@ class AlertEngine:
             self._seen_event_ids = set(trimmed)
 
     async def _fire_alert(self, rule: AlertRule, event) -> None:
-        """Send a webhook POST and update rule statistics."""
+        """Fire notifications and update rule statistics."""
+        from cctvql.notifications.base import NotificationPayload
+        from cctvql.notifications.registry import NotifierRegistry
+
         rule.last_triggered = datetime.now()
         rule.trigger_count += 1
-
-        payload = {
-            "rule_id": rule.id,
-            "rule_name": rule.name,
-            "event": {
-                "id": event.id,
-                "camera_name": event.camera_name,
-                "camera_id": event.camera_id,
-                "event_type": (
-                    event.event_type.value
-                    if hasattr(event.event_type, "value")
-                    else str(event.event_type)
-                ),
-                "start_time": event.start_time.isoformat(),
-                "end_time": event.end_time.isoformat() if event.end_time else None,
-                "objects": [{"label": o.label, "confidence": o.confidence} for o in event.objects],
-                "zones": event.zones,
-                "snapshot_url": event.snapshot_url,
-                "clip_url": event.clip_url,
-            },
-            "triggered_at": rule.last_triggered.isoformat(),
-        }
 
         logger.info(
             "AlertEngine: rule '%s' triggered by event %s on %s",
@@ -227,22 +208,55 @@ class AlertEngine:
             event.camera_name,
         )
 
+        # Build notification payload
+        label_str = ""
+        if event.objects:
+            best = max(event.objects, key=lambda o: o.confidence)
+            label_str = f" — {best.label} detected"
+        notification = NotificationPayload(
+            title=f"Alert: {rule.name}",
+            body=(
+                f"{event.camera_name}{label_str} at "
+                f"{event.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
+            ),
+            event_id=event.id,
+            camera_name=event.camera_name,
+            snapshot_url=event.snapshot_url,
+        )
+
+        # Broadcast via all registered notifiers
+        await NotifierRegistry.broadcast(notification)
+
+        # Legacy single-webhook support (if configured on the rule)
         if rule.webhook_url:
+            from cctvql.notifications.webhook import WebhookNotifier
+
+            webhook_payload = NotificationPayload(
+                title=f"Alert: {rule.name}",
+                body=(
+                    f"{event.camera_name}{label_str} at "
+                    f"{event.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
+                ),
+                event_id=event.id,
+                camera_name=event.camera_name,
+                snapshot_url=event.snapshot_url,
+            )
             try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.post(rule.webhook_url, json=payload)
-                    resp.raise_for_status()
-                    logger.debug(
-                        "AlertEngine: webhook delivered to %s (status %d)",
-                        rule.webhook_url,
-                        resp.status_code,
-                    )
+                notifier = WebhookNotifier(url=rule.webhook_url)
+                await notifier.send(webhook_payload)
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "AlertEngine: webhook delivery failed for rule '%s': %s",
                     rule.name,
                     exc,
                 )
+
+        # Persist fired alert to database if available
+        if self._db:
+            try:
+                await self._db.log_fired_alert(rule_id=rule.id, event_id=event.id)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("AlertEngine: failed to log fired alert: %s", exc)
 
     # ------------------------------------------------------------------
     # Matching logic
