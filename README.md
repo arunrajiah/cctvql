@@ -429,7 +429,7 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 - [x] Prometheus metrics — cameras online/offline, alert rule count
 - [x] Home Assistant custom integration — sensors, binary sensors, services, HACS-ready
 - [x] ONVIF discovery — auto-detect cameras on the local network (`cctvql discover` CLI + `GET /discover/onvif`)
-- [ ] Event timeline UI — visual timeline of events across all cameras
+- [x] Event timeline UI — visual heatmap timeline at `/timeline` with camera rows, time buckets, tooltips, auto-refresh
 - [ ] Face recognition — identify known individuals across camera feeds
 - [ ] Anomaly detection — flag unusual activity patterns automatically
 - [ ] Multi-tenant support — per-user camera permissions and isolated sessions
