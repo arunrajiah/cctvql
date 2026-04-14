@@ -30,6 +30,20 @@ def main() -> None:
     serve_parser.add_argument("--port", type=int, default=8000)
     serve_parser.add_argument("--reload", action="store_true", help="Auto-reload on code changes")
 
+    # ---- discover subcommand ----
+    discover_parser = subparsers.add_parser(
+        "discover", help="Discover ONVIF cameras on the local network"
+    )
+    discover_parser.add_argument(
+        "--timeout", type=float, default=3.0, help="Probe timeout in seconds (default: 3.0)"
+    )
+    discover_parser.add_argument(
+        "--interface", default="", help="Local interface IP to bind to (default: all)"
+    )
+    discover_parser.add_argument(
+        "--yaml", action="store_true", help="Output as config.yaml adapter snippet"
+    )
+
     args = parser.parse_args()
 
     if args.command == "chat":
@@ -56,6 +70,45 @@ def main() -> None:
             port=args.port,
             reload=args.reload,
         )
+
+    elif args.command == "discover":
+        import asyncio
+
+        from cctvql.adapters.onvif_discovery import discover_onvif_devices
+
+        print(f"Scanning for ONVIF cameras (timeout={args.timeout}s) …\n")
+        devices = asyncio.run(
+            discover_onvif_devices(timeout=args.timeout, interface=args.interface)
+        )
+
+        if not devices:
+            print("No ONVIF devices found.")
+            print("Make sure your cameras are on the same subnet and support WS-Discovery.")
+            sys.exit(0)
+
+        print(f"Found {len(devices)} device(s):\n")
+        for i, d in enumerate(devices, 1):
+            print(f"  [{i}] {d.name}")
+            print(f"      Address : {d.address}")
+            print(f"      Host    : {d.host}  Port: {d.port}")
+            if d.hardware:
+                print(f"      Hardware: {d.hardware}")
+            print()
+
+        if args.yaml:
+            print("─── config.yaml adapter snippet ───")
+            print("adapters:")
+            print("  active: onvif")
+            print("  systems:")
+            for d in devices:
+                safe_name = (d.name or "onvif").lower().replace(" ", "_")
+                print(f"    {safe_name}:")
+                print("      type: onvif")
+                print(f"      host: {d.host}")
+                print(f"      port: {d.port}")
+                print("      username: admin")
+                print('      password: ""')
+            print("───────────────────────────────────")
 
     else:
         parser.print_help()
