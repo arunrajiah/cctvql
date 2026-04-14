@@ -407,6 +407,108 @@ class HikvisionAdapter(BaseAdapter):
             return False
 
     # ------------------------------------------------------------------
+    # PTZ control
+    # ------------------------------------------------------------------
+
+    async def ptz_move(self, camera_name: str, action: str, speed: int = 50) -> bool:
+        """
+        Pan/tilt/zoom via ISAPI PTZCtrl continuous endpoint.
+
+        Args:
+            camera_name: Camera name or channel ID.
+            action:      left|right|up|down|zoom_in|zoom_out|stop
+            speed:       1–100
+
+        Returns:
+            True if command accepted.
+        """
+        cam = await self.get_camera(camera_name=camera_name)
+        channel = cam.id if cam else "1"
+        channel = channel.zfill(2) if channel.isdigit() else channel
+
+        # Map action to PTZ values (pan, tilt, zoom)
+        action_map: dict[str, tuple[int, int, int]] = {
+            "left": (-speed, 0, 0),
+            "right": (speed, 0, 0),
+            "up": (0, speed, 0),
+            "down": (0, -speed, 0),
+            "zoom_in": (0, 0, speed),
+            "zoom_out": (0, 0, -speed),
+            "stop": (0, 0, 0),
+        }
+        pan, tilt, zoom = action_map.get(action.lower(), (0, 0, 0))
+
+        xml_body = (
+            f'<?xml version="1.0" encoding="UTF-8"?>'
+            f'<PTZData xmlns="{_NS}">'
+            f"<pan>{pan}</pan>"
+            f"<tilt>{tilt}</tilt>"
+            f"<zoom>{zoom}</zoom>"
+            f"</PTZData>"
+        )
+        try:
+            r = await self._client.put(
+                f"{self.host}/ISAPI/PTZCtrl/channels/{channel}01/continuous",
+                content=xml_body.encode(),
+                headers={"Content-Type": "application/xml"},
+            )
+            return r.status_code in (200, 204)
+        except Exception as exc:
+            logger.warning("Hikvision PTZ move failed: %s", exc)
+            return False
+
+    async def ptz_preset(self, camera_name: str, preset_id: int) -> bool:
+        """
+        Go to a PTZ preset via ISAPI PTZCtrl presets/goto endpoint.
+
+        Returns:
+            True if command accepted.
+        """
+        cam = await self.get_camera(camera_name=camera_name)
+        channel = cam.id if cam else "1"
+        channel = channel.zfill(2) if channel.isdigit() else channel
+
+        try:
+            r = await self._client.put(
+                f"{self.host}/ISAPI/PTZCtrl/channels/{channel}01/presets/{preset_id}/goto",
+            )
+            return r.status_code in (200, 204)
+        except Exception as exc:
+            logger.warning("Hikvision PTZ preset failed: %s", exc)
+            return False
+
+    async def get_ptz_presets(self, camera_name: str) -> list[dict]:
+        """
+        List PTZ presets from ISAPI.
+
+        Returns:
+            list of {"id": int, "name": str} dicts.
+        """
+        cam = await self.get_camera(camera_name=camera_name)
+        channel = cam.id if cam else "1"
+        channel = channel.zfill(2) if channel.isdigit() else channel
+
+        try:
+            r = await self._client.get(f"{self.host}/ISAPI/PTZCtrl/channels/{channel}01/presets")
+            r.raise_for_status()
+            root = ET.fromstring(r.text)
+            presets = []
+            for preset in root.findall(f".//{{{_NS}}}PTZPreset") or root.findall(".//PTZPreset"):
+                preset_id_el = preset.find(f"{{{_NS}}}id") or preset.find("id")
+                preset_name_el = preset.find(f"{{{_NS}}}presetName") or preset.find("presetName")
+                if preset_id_el is not None:
+                    presets.append(
+                        {
+                            "id": int(preset_id_el.text or 0),
+                            "name": (preset_name_el.text if preset_name_el is not None else ""),
+                        }
+                    )
+            return presets
+        except Exception as exc:
+            logger.warning("Hikvision get_ptz_presets failed: %s", exc)
+            return []
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 

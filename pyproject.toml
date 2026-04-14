@@ -41,7 +41,9 @@ dependencies = [
 mqtt = ["paho-mqtt>=2.0"]
 onvif = ["onvif-zeep>=0.2.12"]
 voice = ["openai>=1.0", "faster-whisper>=1.0"]
-all = ["cctvql[mqtt,onvif,voice]"]
+notifications = ["aiosmtplib>=3.0"]
+db = ["aiosqlite>=0.20"]
+all = ["cctvql[mqtt,onvif,voice,notifications,db]"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",

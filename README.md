@@ -59,6 +59,29 @@ No dashboards. No complex queries. Just ask.
 
 ---
 
+## Screenshots
+
+<div align="center">
+
+**Web UI — landing**
+![cctvQL landing screen showing camera sidebar and example query chips](docs/screenshots/01_landing.png)
+
+**Camera list query**
+![Response showing all 4 cameras with status and zones](docs/screenshots/02_camera_list.png)
+
+**Event history**
+![Recent motion events on the Front Door camera with timestamps and confidence scores](docs/screenshots/03_events.png)
+
+**Alert rule creation**
+![Natural language alert setup — person detected after 10pm](docs/screenshots/04_alert_setup.png)
+
+**Multi-turn conversation with vision AI**
+![Multi-turn conversation including a GPT-4o Vision analysis of an event snapshot](docs/screenshots/05_conversation.png)
+
+</div>
+
+---
+
 ## Quick Start
 
 ### Try it now — no hardware needed

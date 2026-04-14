@@ -15,7 +15,6 @@ from cctvql.adapters.demo import DemoAdapter
 from cctvql.core.alerts import AlertEngine, AlertRule, make_rule_from_context
 from cctvql.core.schema import DetectedObject, Event, EventType
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -270,16 +269,14 @@ async def test_fire_alert_sends_webhook(engine):
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("cctvql.core.alerts.httpx.AsyncClient", return_value=mock_client):
+    with patch("cctvql.notifications.webhook.httpx.AsyncClient", return_value=mock_client):
         await engine._fire_alert(rule, event)
 
     mock_client.post.assert_called_once()
     call_args = mock_client.post.call_args
     assert call_args[0][0] == "http://webhook.test/alert"
     payload = call_args[1]["json"]
-    assert payload["rule_id"] == rule.id
-    assert payload["rule_name"] == rule.name
-    assert payload["event"]["camera_name"] == event.camera_name
+    assert payload["camera_name"] == event.camera_name
 
 
 async def test_fire_alert_no_webhook_does_not_raise(engine):
@@ -301,8 +298,8 @@ async def test_fire_alert_webhook_failure_is_swallowed(engine):
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("cctvql.core.alerts.httpx.AsyncClient", return_value=mock_client):
-        # Should not raise
+    with patch("cctvql.notifications.webhook.httpx.AsyncClient", return_value=mock_client):
+        # Should not raise — WebhookNotifier catches and re-raises, AlertEngine catches it
         await engine._fire_alert(rule, event)
 
     assert rule.trigger_count == 1

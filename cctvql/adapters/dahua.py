@@ -414,6 +414,111 @@ class DahuaAdapter(BaseAdapter):
             return False
 
     # ------------------------------------------------------------------
+    # PTZ control
+    # ------------------------------------------------------------------
+
+    async def ptz_move(self, camera_name: str, action: str, speed: int = 50) -> bool:
+        """
+        Pan/tilt/zoom via Dahua CGI ptz.cgi.
+
+        Args:
+            camera_name: Camera name (resolves to channel number).
+            action:      left|right|up|down|zoom_in|zoom_out|stop
+            speed:       1–100
+
+        Returns:
+            True if command accepted.
+        """
+        cam = await self.get_camera(camera_name=camera_name)
+        channel = int(cam.id) if cam and cam.id.isdigit() else 1
+
+        # Map action to Dahua PTZ codes and direction values
+        code_map: dict[str, tuple[str, int, int]] = {
+            "left": ("Left", 0, 0),
+            "right": ("Right", 0, 0),
+            "up": ("Up", 0, 0),
+            "down": ("Down", 0, 0),
+            "zoom_in": ("ZoomTele", 0, 0),
+            "zoom_out": ("ZoomWide", 0, 0),
+            "stop": ("Stop", 0, 0),
+        }
+        code, h_arg, v_arg = code_map.get(action.lower(), ("Stop", 0, 0))
+
+        try:
+            r = await self._client.get(
+                f"{self.base_url}/cgi-bin/ptz.cgi",
+                params={
+                    "action": "start",
+                    "channel": channel,
+                    "code": code,
+                    "arg1": h_arg,
+                    "arg2": v_arg,
+                    "arg3": speed,
+                },
+            )
+            return r.status_code == 200
+        except Exception as exc:
+            logger.warning("Dahua PTZ move failed: %s", exc)
+            return False
+
+    async def ptz_preset(self, camera_name: str, preset_id: int) -> bool:
+        """
+        Go to a named preset via Dahua CGI ptz.cgi GotoPreset.
+
+        Returns:
+            True if command accepted.
+        """
+        cam = await self.get_camera(camera_name=camera_name)
+        channel = int(cam.id) if cam and cam.id.isdigit() else 1
+
+        try:
+            r = await self._client.get(
+                f"{self.base_url}/cgi-bin/ptz.cgi",
+                params={
+                    "action": "start",
+                    "channel": channel,
+                    "code": "GotoPreset",
+                    "arg1": 0,
+                    "arg2": preset_id,
+                    "arg3": 0,
+                },
+            )
+            return r.status_code == 200
+        except Exception as exc:
+            logger.warning("Dahua PTZ preset failed: %s", exc)
+            return False
+
+    async def get_ptz_presets(self, camera_name: str) -> list[dict]:
+        """
+        Return available PTZ presets from Dahua CGI.
+
+        Returns:
+            list of {"id": int, "name": str} dicts.
+        """
+        cam = await self.get_camera(camera_name=camera_name)
+        channel = int(cam.id) if cam and cam.id.isdigit() else 1
+
+        try:
+            r = await self._client.get(
+                f"{self.base_url}/cgi-bin/ptz.cgi",
+                params={"action": "getPresets", "channel": channel},
+            )
+            r.raise_for_status()
+            data = _parse_dahua(r.text)
+            presets: list[dict] = []
+            idx = 0
+            while f"presets[{idx}].Name" in data or f"table.presets[{idx}].Name" in data:
+                name = data.get(f"presets[{idx}].Name") or data.get(
+                    f"table.presets[{idx}].Name", f"Preset {idx}"
+                )
+                presets.append({"id": idx, "name": name})
+                idx += 1
+            return presets
+        except Exception as exc:
+            logger.warning("Dahua get_ptz_presets failed: %s", exc)
+            return []
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
