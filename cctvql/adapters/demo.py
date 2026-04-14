@@ -609,12 +609,7 @@ class DemoAdapter(BaseAdapter):
                 continue
             if label:
                 label_lower = label.lower()
-                if not any(
-                    obj.label.lower() == label_lower
-                    if isinstance(obj.label, str)
-                    else obj.label.value.lower() == label_lower
-                    for obj in evt.objects
-                ):
+                if not any(obj.label.lower() == label_lower for obj in evt.objects):
                     continue
             if zone and zone.lower() not in [z.lower() for z in evt.zones]:
                 continue

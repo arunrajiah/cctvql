@@ -143,11 +143,14 @@ class HikvisionAdapter(BaseAdapter):
             )
 
             for ch in channels:
-                ch_id = _findtext(ch, "id") or (
-                    ch.find("id").text if ch.find("id") is not None else ""
+                _id_el = ch.find("id")
+                ch_id: str = _findtext(ch, "id") or (
+                    (_id_el.text or "") if _id_el is not None else ""
                 )
-                ch_name = _findtext(ch, "name") or (
-                    ch.find("name").text if ch.find("name") is not None else f"Channel {ch_id}"
+                _name_el = ch.find("name")
+                _fallback_name = f"Channel {ch_id}"
+                ch_name: str = _findtext(ch, "name") or (
+                    (_name_el.text or _fallback_name) if _name_el is not None else _fallback_name
                 )
                 # status element may be nested under sourceInputPortDescriptor
                 status_text = _findtext(ch, "online") or ""

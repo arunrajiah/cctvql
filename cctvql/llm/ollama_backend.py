@@ -8,6 +8,7 @@ Requires Ollama to be running: https://ollama.com
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import httpx
 
@@ -65,7 +66,9 @@ class OllamaBackend(BaseLLM):
         The ``images`` field accepts a list of base64 strings alongside the message.
         Requires a vision-capable model such as llava, bakllava, or moondream.
         """
-        ollama_messages = [{"role": m.role, "content": m.content} for m in messages]
+        ollama_messages: list[dict[str, Any]] = [
+            {"role": m.role, "content": m.content} for m in messages
+        ]
 
         # Attach image to the last user message (Ollama API convention)
         for msg in reversed(ollama_messages):

@@ -83,6 +83,11 @@ quote-style = "double"
 python_version = "3.10"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["yaml", "yaml.*"]
+ignore_missing_imports = true
+ignore_errors = true
+
 [tool.coverage.run]
 source = ["cctvql"]
 omit = ["cctvql/__main__.py"]

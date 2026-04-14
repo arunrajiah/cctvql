@@ -13,10 +13,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +54,8 @@ class HealthMonitor:
 
     def __init__(
         self,
-        adapter_registry: type,
-        notifier_registry: type,
+        adapter_registry: Any,
+        notifier_registry: Any,
         poll_interval: int = 60,
     ) -> None:
         self._registry = adapter_registry

@@ -5,13 +5,11 @@ Tests for VoiceInterface (cctvql.interfaces.voice).
 from __future__ import annotations
 
 import platform
-import subprocess
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from cctvql.interfaces.voice import VoiceInterface, _normalise_audio_ext
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

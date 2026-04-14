@@ -15,13 +15,11 @@ from cctvql.core.multi_query import MultiSystemRouter
 from cctvql.core.schema import (
     Camera,
     CameraStatus,
-    DetectedObject,
     Event,
     EventType,
     QueryContext,
 )
 from cctvql.llm.base import LLMResponse
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
