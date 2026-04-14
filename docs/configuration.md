@@ -77,6 +77,58 @@ adapters:
 
 ---
 
+## Database
+
+cctvQL persists conversation history and events to SQLite. Configure the database path via environment variable:
+
+```bash
+export CCTVQL_DB_PATH=/data/cctvql.db
+```
+
+If not set, data is written to `cctvql.db` in the working directory. See [persistence.md](persistence.md) for full details.
+
+---
+
+## Notifications
+
+Send alerts to any combination of channels when an alert rule fires:
+
+```yaml
+notifications:
+  # HTTP webhook (works with Home Assistant, Zapier, etc.)
+  webhooks:
+    - url: https://example.com/hook
+
+  # Telegram bot
+  telegram:
+    bot_token: "123456:ABC-DEF..."
+    chat_id: "-1001234567890"
+
+  # Slack incoming webhook
+  slack:
+    webhook_url: "https://hooks.slack.com/services/..."
+
+  # ntfy push notifications
+  ntfy:
+    topic: my-cctvql-alerts
+    server: https://ntfy.sh        # defaults to ntfy.sh
+
+  # Email via SMTP
+  email:
+    smtp_host: smtp.gmail.com
+    smtp_port: 587
+    username: you@gmail.com
+    password: ""                   # use CCTVQL_SMTP_PASSWORD env var
+    from_addr: you@gmail.com
+    to_addrs:
+      - recipient@example.com
+    use_tls: true
+```
+
+See [notifications.md](notifications.md) for full setup instructions for each channel.
+
+---
+
 ## Environment Variables
 
 Sensitive values can be passed as environment variables instead of hardcoding them in the config file:
@@ -85,6 +137,10 @@ Sensitive values can be passed as environment variables instead of hardcoding th
 |----------|-------------|
 | `OPENAI_API_KEY` | OpenAI API key |
 | `ANTHROPIC_API_KEY` | Anthropic API key |
+| `CCTVQL_API_KEY` | Require `X-API-Key` header on all REST requests |
+| `CCTVQL_DB_PATH` | SQLite database file path (default: `cctvql.db`) |
+| `CCTVQL_HEALTH_POLL_INTERVAL` | Camera health poll interval in seconds (default: `60`) |
+| `CCTVQL_SMTP_PASSWORD` | SMTP password for email notifications |
 
 ---
 
@@ -96,6 +152,8 @@ When using Docker, pass variables via `docker-compose.yml` or `.env`:
 # .env
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
+CCTVQL_DB_PATH=/data/cctvql.db
+CCTVQL_HEALTH_POLL_INTERVAL=60
 ```
 
 ```yaml
@@ -103,6 +161,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 services:
   cctvql:
     env_file: .env
+    volumes:
+      - cctvql_data:/data
 ```
 
 ---
