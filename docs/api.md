@@ -9,6 +9,8 @@ cctvQL exposes a REST API when running in `serve` mode. All endpoints return JSO
 
 ## Authentication
 
+### Single-tenant (default)
+
 Set the `CCTVQL_API_KEY` environment variable to enable API key authentication.
 All requests must then include the header:
 
@@ -17,6 +19,101 @@ X-API-Key: your-api-key-here
 ```
 
 If the variable is not set, all endpoints are open (suitable for private network deployments).
+
+### Multi-tenant mode
+
+Set `CCTVQL_MULTI_TENANT=1` to enable per-user JWT authentication with camera permission groups.
+
+```bash
+export CCTVQL_MULTI_TENANT=1
+export CCTVQL_SECRET_KEY=your-random-secret   # optional, auto-generated if omitted
+export CCTVQL_DB_PATH=/data/cctvql.db         # required for user persistence
+```
+
+All requests (except `/health`) must include a Bearer token:
+
+```
+Authorization: Bearer <token>
+```
+
+Get a token via `POST /auth/login`. See [Multi-Tenant & User Management](#multi-tenant--user-management) below.
+
+---
+
+## Multi-Tenant & User Management
+
+Only available when `CCTVQL_MULTI_TENANT=1`.
+
+### POST /auth/login
+
+Obtain a JWT access token.
+
+**Request body:**
+```json
+{"username": "alice", "password": "s3cur3P@ss"}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJ...",
+  "token_type": "bearer",
+  "expires_in": 86400,
+  "user_id": "abc123",
+  "username": "alice",
+  "role": "admin"
+}
+```
+
+### POST /auth/register
+
+Create a new user account.
+
+- The **first** registration becomes admin automatically (bootstrap — no token needed).
+- All subsequent registrations require an admin Bearer token.
+
+**Request body:**
+```json
+{
+  "username": "bob",
+  "password": "s3cur3P@ss",
+  "role": "viewer",
+  "camera_groups": ["Front Door", "Driveway"]
+}
+```
+
+`camera_groups` restricts which cameras the user can query. Empty list = all cameras.
+
+Returns `201 Created` with the user object (no password hash).
+
+### GET /users
+
+List all user accounts (admin only).
+
+### GET /users/me
+
+Return the currently authenticated user's profile.
+
+### PATCH /users/{user_id}
+
+Update a user account (admin only). Accepts: `role`, `camera_groups`, `active`, `password`.
+
+```bash
+# Restrict a viewer to two cameras
+curl -X PATCH http://localhost:8000/users/abc123 \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"camera_groups": ["Front Door", "Backyard"]}'
+
+# Deactivate a user
+curl -X PATCH http://localhost:8000/users/abc123 \
+  -H "Authorization: Bearer <admin-token>" \
+  -d '{"active": false}'
+```
+
+### DELETE /users/{user_id}
+
+Delete a user account (admin only). Returns `409` if attempting to delete the last admin.
 
 ---
 

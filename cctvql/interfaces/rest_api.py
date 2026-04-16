@@ -56,6 +56,7 @@ from starlette.responses import Response
 
 from cctvql.adapters.base import AdapterRegistry
 from cctvql.core.alerts import AlertEngine, make_rule_from_context
+from cctvql.core.auth import ROLE_ADMIN, AuthManager, User
 from cctvql.core.database import Database
 from cctvql.core.health_monitor import HealthMonitor
 from cctvql.core.multi_query import MultiSystemRouter
@@ -63,6 +64,7 @@ from cctvql.core.nlp_engine import NLPEngine
 from cctvql.core.query_router import QueryRouter
 from cctvql.core.schema import Event
 from cctvql.core.session_store import SessionStore
+from cctvql.core.user_store import UserStore
 from cctvql.llm.base import LLMRegistry
 from cctvql.notifications.registry import NotifierRegistry
 
@@ -117,16 +119,24 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 # App setup
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Multi-tenant feature flag
+# ---------------------------------------------------------------------------
+
+_MULTI_TENANT: bool = os.environ.get("CCTVQL_MULTI_TENANT", "0").strip() in {"1", "true", "yes"}
+
 # Global singletons — set in lifespan, used in route handlers
 _db: Database | None = None
 _session_store: SessionStore | None = None
 _alert_engine: AlertEngine | None = None
 _health_monitor: HealthMonitor | None = None
+_auth_manager: AuthManager | None = None
+_user_store: UserStore | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _db, _session_store, _alert_engine, _health_monitor
+    global _db, _session_store, _alert_engine, _health_monitor, _auth_manager, _user_store
 
     # ── 1. Adapter connection ────────────────────────────────────────────────
     try:
@@ -149,7 +159,17 @@ async def lifespan(app: FastAPI):
         _db = None
         _session_store = None
 
-    # ── 3. Alert engine ──────────────────────────────────────────────────────
+    # ── 3. Multi-tenant user store (opt-in) ──────────────────────────────────
+    if _MULTI_TENANT:
+        if _db is None:
+            logger.error("Multi-tenant mode requires a database. Set CCTVQL_DB_PATH.")
+        else:
+            _auth_manager = AuthManager()
+            _user_store = UserStore(_db._conn, _auth_manager)
+            await _user_store.setup()
+            logger.info("Multi-tenant mode enabled")
+
+    # ── 4. Alert engine ──────────────────────────────────────────────────────
     _alert_engine = AlertEngine(AdapterRegistry)
     await _alert_engine.start()
 
@@ -265,6 +285,90 @@ class PTZRequest(BaseModel):
     preset_id: int | None = None  # for preset moves
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int  # seconds
+    user_id: str
+    username: str
+    role: str
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    role: str = "viewer"
+    camera_groups: list[str] = []
+
+
+class UserResponse(BaseModel):
+    id: str
+    username: str
+    role: str
+    camera_groups: list[str]
+    created_at: str
+    active: bool
+
+
+class UserUpdate(BaseModel):
+    role: str | None = None
+    camera_groups: list[str] | None = None
+    active: bool | None = None
+    password: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Multi-tenant auth dependency
+# ---------------------------------------------------------------------------
+
+
+def _require_multi_tenant() -> None:
+    """Raise 501 if multi-tenant mode is not enabled."""
+    if not _MULTI_TENANT or _user_store is None or _auth_manager is None:
+        raise HTTPException(
+            status_code=501,
+            detail="Multi-tenant mode is not enabled. Set CCTVQL_MULTI_TENANT=1.",
+        )
+
+
+async def _get_current_user(
+    request: Request,
+) -> User | None:
+    """
+    Extract and validate the Bearer JWT from the Authorization header.
+
+    Returns the ``User`` object, or ``None`` if multi-tenant is disabled
+    (so single-tenant routes can still work without a token).
+    """
+    if not _MULTI_TENANT:
+        return None
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
+    token = auth_header[len("Bearer ") :]
+    assert _auth_manager is not None
+    payload = _auth_manager.verify_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    assert _user_store is not None
+    user = await _user_store.get_by_id(payload["sub"])
+    if not user or not user.active:
+        raise HTTPException(status_code=401, detail="User not found or inactive.")
+    return user
+
+
+def _require_admin(user: User | None) -> User:
+    """Raise 403 if *user* is not an admin."""
+    if user is None or user.role != ROLE_ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    return user
+
+
 # ---------------------------------------------------------------------------
 # Session management (DB-backed when available, in-memory fallback)
 # ---------------------------------------------------------------------------
@@ -335,6 +439,152 @@ async def websocket_events(websocket: WebSocket) -> None:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Authentication & user management (multi-tenant only)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/auth/login", response_model=TokenResponse)
+async def login(body: LoginRequest) -> TokenResponse:
+    """
+    Obtain a JWT access token.
+
+    Only available when ``CCTVQL_MULTI_TENANT=1`` is set.
+    """
+    _require_multi_tenant()
+    assert _user_store is not None and _auth_manager is not None
+    user = await _user_store.get_by_username(body.username)
+    if not user or not user.active:
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    if not _auth_manager.verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    import os as _os
+
+    expire_hours = int(_os.environ.get("CCTVQL_TOKEN_EXPIRE_HOURS", "24"))
+    return TokenResponse(
+        access_token=_auth_manager.create_token(user),
+        expires_in=expire_hours * 3600,
+        user_id=user.id,
+        username=user.username,
+        role=user.role,
+    )
+
+
+@app.post("/auth/register", response_model=UserResponse, status_code=201)
+async def register(body: RegisterRequest, request: Request) -> UserResponse:
+    """
+    Register a new user.
+
+    - The **first** user to register becomes an admin automatically (bootstrap).
+    - All subsequent registrations require an existing admin's Bearer token.
+
+    Only available when ``CCTVQL_MULTI_TENANT=1`` is set.
+    """
+    _require_multi_tenant()
+    assert _user_store is not None
+
+    total = await _user_store.count_users()
+    if total == 0:
+        # Bootstrap: first user becomes admin regardless of requested role
+        role = ROLE_ADMIN
+    else:
+        # Must be authenticated as admin
+        caller = await _get_current_user(request)
+        _require_admin(caller)
+        role = body.role if body.role in {"admin", "viewer"} else "viewer"
+
+    try:
+        user = await _user_store.create_user(
+            username=body.username,
+            password=body.password,
+            role=role,
+            camera_groups=body.camera_groups,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    return UserResponse(**user.to_dict())
+
+
+@app.get("/users", response_model=list[UserResponse])
+async def list_users(request: Request) -> list[UserResponse]:
+    """List all user accounts (admin only)."""
+    _require_multi_tenant()
+    caller = await _get_current_user(request)
+    _require_admin(caller)
+    assert _user_store is not None
+    users = await _user_store.list_users()
+    return [UserResponse(**u.to_dict()) for u in users]
+
+
+@app.get("/users/me", response_model=UserResponse)
+async def get_me(request: Request) -> UserResponse:
+    """Return the currently authenticated user's profile."""
+    _require_multi_tenant()
+    user = await _get_current_user(request)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    return UserResponse(**user.to_dict())
+
+
+@app.patch("/users/{user_id}", response_model=UserResponse)
+async def update_user(user_id: str, body: UserUpdate, request: Request) -> UserResponse:
+    """
+    Update a user account (admin only).
+
+    Allowed fields: ``role``, ``camera_groups``, ``active``, ``password``.
+    """
+    _require_multi_tenant()
+    caller = await _get_current_user(request)
+    _require_admin(caller)
+    assert _user_store is not None
+
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=422, detail="No fields provided.")
+
+    # Guard: cannot demote the last admin
+    if updates.get("role") == "viewer" or updates.get("active") is False:
+        target = await _user_store.get_by_id(user_id)
+        if target and target.role == ROLE_ADMIN:
+            admin_count = await _user_store.count_admins()
+            if admin_count <= 1:
+                raise HTTPException(
+                    status_code=409, detail="Cannot demote or deactivate the last admin."
+                )
+
+    user = await _user_store.update_user(user_id, **updates)
+    if user is None:
+        raise HTTPException(status_code=404, detail=f"User '{user_id}' not found.")
+    return UserResponse(**user.to_dict())
+
+
+@app.delete("/users/{user_id}")
+async def delete_user(user_id: str, request: Request) -> dict[str, str]:
+    """Delete a user account (admin only)."""
+    _require_multi_tenant()
+    caller = await _get_current_user(request)
+    _require_admin(caller)
+    assert _user_store is not None
+
+    # Guard: cannot delete the last admin
+    target = await _user_store.get_by_id(user_id)
+    if target and target.role == ROLE_ADMIN:
+        admin_count = await _user_store.count_admins()
+        if admin_count <= 1:
+            raise HTTPException(status_code=409, detail="Cannot delete the last admin.")
+
+    deleted = await _user_store.delete_user(user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"User '{user_id}' not found.")
+    return {"status": "deleted", "id": user_id}
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root() -> HTMLResponse:
     """Serve the cctvQL Web UI."""
@@ -388,10 +638,13 @@ async def query(req: QueryRequest) -> QueryResponse:
 
 
 @app.get("/cameras")
-async def list_cameras() -> list[dict[str, Any]]:
+async def list_cameras(request: Request) -> list[dict[str, Any]]:
     """List all cameras in the connected CCTV system."""
     adapter = AdapterRegistry.get_active()
     cameras = await adapter.list_cameras()
+    user = await _get_current_user(request)
+    if user is not None:
+        cameras = [c for c in cameras if user.can_see_camera(c.name)]
     return [
         {
             "id": c.id,

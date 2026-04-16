@@ -57,6 +57,8 @@ No dashboards. No complex queries. Just ask.
 - **Prometheus metrics** — `/metrics` endpoint for Grafana, alerting, and observability
 - **Camera health monitoring** — background poller tracks per-camera online/offline status
 - **Optional API key auth** — protect your endpoint with `CCTVQL_API_KEY` env var
+- **Multi-tenant support** — JWT auth, per-user camera permissions, admin user management (`CCTVQL_MULTI_TENANT=1`)
+- **Anomaly detection** — statistical spike/silence detection per camera; ask "anything unusual today?"
 - **Demo adapter** — try cctvQL without any hardware; realistic mock data built-in
 - **Interactive CLI** — terminal-based conversational REPL
 - **Real-time events** — MQTT subscription for live alerts (Frigate)
@@ -436,7 +438,7 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 - [x] Event timeline UI — visual heatmap timeline at `/timeline` with camera rows, time buckets, tooltips, auto-refresh
 - [ ] Face recognition — identify known individuals across camera feeds
 - [x] Anomaly detection — statistical spike/silence detection per camera with z-score baseline (`GET /anomalies`)
-- [ ] Multi-tenant support — per-user camera permissions and isolated sessions
+- [x] Multi-tenant support — JWT auth, per-user camera permissions, admin user management (`CCTVQL_MULTI_TENANT=1`)
 - [ ] Mobile app (React Native)
 
 ---
