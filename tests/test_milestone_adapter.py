@@ -218,9 +218,9 @@ async def test_get_clips_returns_empty_on_error(adapter):
 
 
 def test_safe_odata_id_rejects_injection():
-    from cctvql.adapters.milestone import _safe_odata_id
-
     import pytest
+
+    from cctvql.adapters.milestone import _safe_odata_id
 
     with pytest.raises(ValueError):
         _safe_odata_id("cam' or '1'='1")
@@ -229,7 +229,8 @@ def test_safe_odata_id_rejects_injection():
 def test_safe_odata_id_accepts_guid():
     from cctvql.adapters.milestone import _safe_odata_id
 
-    assert _safe_odata_id("a0b1c2d3-e4f5-6789-abcd-ef0123456789") == "a0b1c2d3-e4f5-6789-abcd-ef0123456789"
+    guid = "a0b1c2d3-e4f5-6789-abcd-ef0123456789"
+    assert _safe_odata_id(guid) == guid
 
 
 # ---------------------------------------------------------------------------
