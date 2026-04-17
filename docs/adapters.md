@@ -188,3 +188,44 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for PR guidelines.
 - Add `metadata={"source": "your_system"}` to all objects for debugging
 - If your system uses RTSP, store the RTSP URL in `Camera.stream_url`
 - Test with `pytest -v` before opening a PR
+
+---
+
+## Reference Implementations
+
+Each bundled adapter illustrates a different authentication pattern — pick the closest match when starting yours:
+
+| Adapter | Auth pattern | Transport | File |
+|---------|--------------|-----------|------|
+| `frigate` | No auth (LAN) | REST + MQTT | [`cctvql/adapters/frigate.py`](../cctvql/adapters/frigate.py) |
+| `onvif` | WS-Security | SOAP (onvif-zeep) | [`cctvql/adapters/onvif.py`](../cctvql/adapters/onvif.py) |
+| `hikvision` | HTTP Digest | XML / ISAPI | [`cctvql/adapters/hikvision.py`](../cctvql/adapters/hikvision.py) |
+| `dahua` | HTTP Digest | CGI key=value | [`cctvql/adapters/dahua.py`](../cctvql/adapters/dahua.py) |
+| `synology` | Session ID (SID) | JSON Web API | [`cctvql/adapters/synology.py`](../cctvql/adapters/synology.py) |
+| `milestone` | OAuth 2.0 Bearer | REST / OData | [`cctvql/adapters/milestone.py`](../cctvql/adapters/milestone.py) |
+| `scrypted` | Long-lived Bearer token | REST (plugin endpoints) | [`cctvql/adapters/scrypted.py`](../cctvql/adapters/scrypted.py) |
+
+### Config snippets
+
+```yaml
+# Synology Surveillance Station — session-based auth
+synology:
+  type: synology
+  host: http://192.168.1.10:5000
+  username: admin
+  password: "${SYNOLOGY_PASSWORD}"
+
+# Milestone XProtect — OAuth2 password grant against IDP
+milestone:
+  type: milestone
+  host: https://vms.example.com
+  username: admin
+  password: "${MILESTONE_PASSWORD}"
+  client_id: GrantValidatorClient
+
+# Scrypted — Bearer token generated in Settings → Users
+scrypted:
+  type: scrypted
+  host: https://scrypted.local:10443
+  api_token: "${SCRYPTED_API_TOKEN}"
+```

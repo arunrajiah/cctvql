@@ -172,6 +172,37 @@ def _create_adapter(adapter_type: str, cfg: dict):
             password=cfg.get("password", ""),
             channel_count=cfg.get("channel_count", 4),
         )
+    elif adapter_type == "synology":
+        from cctvql.adapters.synology import SynologyAdapter
+
+        return SynologyAdapter(
+            host=cfg.get("host", "http://192.168.1.10:5000"),
+            username=cfg.get("username", "admin"),
+            password=cfg.get("password", ""),
+            session=cfg.get("session", "SurveillanceStation"),
+            ssl_verify=cfg.get("ssl_verify", True),
+        )
+    elif adapter_type == "milestone":
+        from cctvql.adapters.milestone import MilestoneAdapter
+
+        return MilestoneAdapter(
+            host=cfg.get("host", "https://vms.example.com"),
+            username=cfg.get("username", "admin"),
+            password=cfg.get("password", ""),
+            client_id=cfg.get("client_id", "GrantValidatorClient"),
+            grant_type=cfg.get("grant_type", "password"),
+            ssl_verify=cfg.get("ssl_verify", True),
+        )
+    elif adapter_type == "scrypted":
+        from cctvql.adapters.scrypted import ScryptedAdapter
+
+        return ScryptedAdapter(
+            host=cfg.get("host", "https://scrypted.local:10443"),
+            api_token=cfg.get("api_token", ""),
+            username=cfg.get("username", ""),
+            password=cfg.get("password", ""),
+            ssl_verify=cfg.get("ssl_verify", True),
+        )
     else:
         raise ValueError(f"Unknown adapter type: {adapter_type}")
 
