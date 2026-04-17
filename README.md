@@ -169,11 +169,11 @@ cctvql chat
 | [Frigate NVR](https://frigate.video) | NVR | `frigate` | ✅ Full support (REST + MQTT) |
 | Any ONVIF camera/NVR | Camera/NVR | `onvif` | ✅ Full support |
 | Demo / Mock | Built-in | `demo` | ✅ No hardware needed — try cctvQL now |
-| Hikvision | NVR/Camera | `hikvision` | 🚧 Planned — [help wanted](https://github.com/arunrajiah/cctvql/issues) |
-| Dahua | NVR/Camera | `dahua` | 🚧 Planned — [help wanted](https://github.com/arunrajiah/cctvql/issues) |
-| Synology Surveillance Station | NVR | `synology` | 🚧 Planned |
-| Milestone XProtect | Enterprise NVR | `milestone` | 🚧 Planned |
-| Scrypted | Smart home NVR | `scrypted` | 🚧 Planned |
+| Hikvision | NVR/Camera | `hikvision` | ✅ Full support (ISAPI) |
+| Dahua | NVR/Camera | `dahua` | ✅ Full support (CGI) |
+| [Synology Surveillance Station](https://www.synology.com/en-global/surveillance) | NVR | `synology` | ✅ Full support (Web API) |
+| [Milestone XProtect](https://www.milestonesys.com/) | Enterprise NVR | `milestone` | ✅ Full support (REST API) |
+| [Scrypted](https://scrypted.app) | Smart home NVR | `scrypted` | ✅ Full support (Bearer token) |
 | **Your system** | Any | — | [Write an adapter!](docs/adapters.md) |
 
 > Writing an adapter takes ~100 lines. See the [adapter guide](docs/adapters.md).
