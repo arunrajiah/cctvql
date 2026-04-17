@@ -41,7 +41,7 @@ llm:
 # CCTV Adapters
 # ---------------------------------------------------------------------------
 adapters:
-  active: frigate   # Which adapter to use: frigate | onvif
+  active: frigate   # frigate | onvif | hikvision | dahua | synology | milestone | scrypted | demo
 
   systems:
     # Option 1: Frigate NVR
@@ -76,7 +76,33 @@ adapters:
       password: ""
       channel_count: 4
 
-    # Option 5: Demo (no hardware required — for testing and development)
+    # Option 5: Synology Surveillance Station
+    synology:
+      type: synology
+      host: http://192.168.1.10:5000    # NAS URL including port
+      username: admin
+      password: ""
+      session: SurveillanceStation      # optional
+
+    # Option 6: Milestone XProtect VMS
+    milestone:
+      type: milestone
+      host: https://vms.example.com     # Management Server URL
+      username: admin
+      password: ""
+      client_id: GrantValidatorClient   # optional
+      grant_type: password              # password | client_credentials
+
+    # Option 7: Scrypted smart-home NVR
+    scrypted:
+      type: scrypted
+      host: https://scrypted.local:10443
+      api_token: ""                     # generate in Scrypted Settings → Users
+      # username/password are fallbacks if no token is available
+      username: ""
+      password: ""
+
+    # Option 8: Demo (no hardware required — for testing and development)
     demo:
       type: demo
 
