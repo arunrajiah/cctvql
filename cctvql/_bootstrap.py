@@ -180,6 +180,7 @@ def _create_adapter(adapter_type: str, cfg: dict):
             username=cfg.get("username", "admin"),
             password=cfg.get("password", ""),
             session=cfg.get("session", "SurveillanceStation"),
+            ssl_verify=cfg.get("ssl_verify", True),
         )
     elif adapter_type == "milestone":
         from cctvql.adapters.milestone import MilestoneAdapter
@@ -190,6 +191,7 @@ def _create_adapter(adapter_type: str, cfg: dict):
             password=cfg.get("password", ""),
             client_id=cfg.get("client_id", "GrantValidatorClient"),
             grant_type=cfg.get("grant_type", "password"),
+            ssl_verify=cfg.get("ssl_verify", True),
         )
     elif adapter_type == "scrypted":
         from cctvql.adapters.scrypted import ScryptedAdapter
@@ -199,6 +201,7 @@ def _create_adapter(adapter_type: str, cfg: dict):
             api_token=cfg.get("api_token", ""),
             username=cfg.get("username", ""),
             password=cfg.get("password", ""),
+            ssl_verify=cfg.get("ssl_verify", True),
         )
     else:
         raise ValueError(f"Unknown adapter type: {adapter_type}")

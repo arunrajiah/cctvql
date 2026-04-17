@@ -83,6 +83,7 @@ adapters:
       username: admin
       password: ""
       session: SurveillanceStation      # optional
+      # ssl_verify: false               # set false only for self-signed certs
 
     # Option 6: Milestone XProtect VMS
     milestone:
@@ -92,6 +93,7 @@ adapters:
       password: ""
       client_id: GrantValidatorClient   # optional
       grant_type: password              # password | client_credentials
+      # ssl_verify: false               # set false only for self-signed certs
 
     # Option 7: Scrypted smart-home NVR
     scrypted:
@@ -101,6 +103,7 @@ adapters:
       # username/password are fallbacks if no token is available
       username: ""
       password: ""
+      # ssl_verify: false               # set false only for self-signed certs
 
     # Option 8: Demo (no hardware required — for testing and development)
     demo:

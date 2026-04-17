@@ -16,7 +16,7 @@ API reference: https://docs.scrypted.app/development.html
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -61,12 +61,13 @@ class ScryptedAdapter(BaseAdapter):
         username: str = "",
         password: str = "",
         api_timeout: float = 30.0,
+        ssl_verify: bool = True,
     ) -> None:
         self.host = host.rstrip("/")
         self.api_token = api_token
         self.username = username
         self.password = password
-        self._client = httpx.AsyncClient(timeout=api_timeout, verify=False)
+        self._client = httpx.AsyncClient(timeout=api_timeout, verify=ssl_verify)
         self._connected = False
 
     @property
@@ -222,8 +223,12 @@ class ScryptedAdapter(BaseAdapter):
                         camera_id=ev_cam,
                         camera_name=ev.get("deviceName") or f"Device {ev_cam}",
                         event_type=self._map_event_type(ev.get("type") or ev.get("class")),
-                        start_time=datetime.fromtimestamp(int(start_ms) / 1000),
-                        end_time=(datetime.fromtimestamp(int(end_ms) / 1000) if end_ms else None),
+                        start_time=datetime.fromtimestamp(int(start_ms) / 1000, tz=timezone.utc),
+                        end_time=(
+                            datetime.fromtimestamp(int(end_ms) / 1000, tz=timezone.utc)
+                            if end_ms
+                            else None
+                        ),
                         metadata={
                             "source": "scrypted",
                             "class": ev.get("class"),
@@ -287,8 +292,8 @@ class ScryptedAdapter(BaseAdapter):
                         id=rec_id,
                         camera_id=rec_cam,
                         camera_name=rec.get("deviceName") or f"Device {rec_cam}",
-                        start_time=datetime.fromtimestamp(int(start_ms) / 1000),
-                        end_time=datetime.fromtimestamp(int(end_ms) / 1000),
+                        start_time=datetime.fromtimestamp(int(start_ms) / 1000, tz=timezone.utc),
+                        end_time=datetime.fromtimestamp(int(end_ms) / 1000, tz=timezone.utc),
                         download_url=rec.get("url"),
                         size_bytes=rec.get("size"),
                         metadata={"source": "scrypted"},

@@ -13,7 +13,7 @@ API reference: https://global.download.synology.com/download/Document/Software/D
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -58,13 +58,14 @@ class SynologyAdapter(BaseAdapter):
         password: str = "",
         session: str = "SurveillanceStation",
         api_timeout: float = 30.0,
+        ssl_verify: bool = True,
     ) -> None:
         self.host = host.rstrip("/")
         self.username = username
         self.password = password
         self.session = session
         self._sid: str | None = None
-        self._client = httpx.AsyncClient(timeout=api_timeout, verify=False)
+        self._client = httpx.AsyncClient(timeout=api_timeout, verify=ssl_verify)
 
     @property
     def name(self) -> str:
@@ -168,10 +169,7 @@ class SynologyAdapter(BaseAdapter):
                         id=cam_id,
                         name=cam.get("newName") or cam.get("name") or f"Camera {cam_id}",
                         status=status,
-                        snapshot_url=(
-                            f"{self.host}/webapi/entry.cgi?api=SYNO.SurveillanceStation.Camera"
-                            f"&method=GetSnapshot&version=9&id={cam_id}&_sid={self._sid}"
-                        ),
+                        snapshot_url=None,  # auth injected at request-time via get_snapshot_url()
                         stream_url=cam.get("rtspPath") or cam.get("rtsp_path"),
                         metadata={
                             "source": "synology",
@@ -243,8 +241,8 @@ class SynologyAdapter(BaseAdapter):
                         camera_id=ev_cam_id,
                         camera_name=ev.get("camera_name") or f"Camera {ev_cam_id}",
                         event_type=self._map_event_type(ev.get("reason")),
-                        start_time=datetime.fromtimestamp(int(start_ts)),
-                        end_time=datetime.fromtimestamp(int(stop_ts)) if stop_ts else None,
+                        start_time=datetime.fromtimestamp(int(start_ts), tz=timezone.utc),
+                        end_time=datetime.fromtimestamp(int(stop_ts), tz=timezone.utc) if stop_ts else None,
                         metadata={
                             "source": "synology",
                             "reason": ev.get("reason"),
@@ -258,11 +256,27 @@ class SynologyAdapter(BaseAdapter):
             return []
 
     async def get_event(self, event_id: str) -> Event | None:
-        """Look up a specific event by ID."""
-        for ev in await self.get_events(limit=200):
-            if ev.id == event_id:
-                return ev
-        return None
+        """Look up a specific event by ID via SYNO.SurveillanceStation.Event / GetInfo."""
+        try:
+            data = await self._api("SYNO.SurveillanceStation.Event", "GetInfo", 5, id=event_id)
+            if not data.get("success"):
+                return None
+            ev = data.get("data", {}).get("event") or data.get("data", {})
+            ev_cam_id = str(ev.get("camera_id") or ev.get("cameraId") or "")
+            start_ts = ev.get("startTime") or ev.get("start_time") or 0
+            stop_ts = ev.get("stopTime") or ev.get("stop_time")
+            return Event(
+                id=str(ev.get("id") or event_id),
+                camera_id=ev_cam_id,
+                camera_name=ev.get("camera_name") or f"Camera {ev_cam_id}",
+                event_type=self._map_event_type(ev.get("reason")),
+                start_time=datetime.fromtimestamp(int(start_ts), tz=timezone.utc),
+                end_time=datetime.fromtimestamp(int(stop_ts), tz=timezone.utc) if stop_ts else None,
+                metadata={"source": "synology", "reason": ev.get("reason")},
+            )
+        except Exception as exc:
+            logger.debug("Synology get_event failed: %s", exc)
+            return None
 
     # ------------------------------------------------------------------
     # Clips (recordings)
@@ -303,15 +317,16 @@ class SynologyAdapter(BaseAdapter):
                 stop_ts = rec.get("stopTime") or rec.get("stop_time") or start_ts
                 download = (
                     f"{self.host}/webapi/entry.cgi?api=SYNO.SurveillanceStation.Recording"
-                    f"&method=Download&version=6&id={rec_id}&_sid={self._sid}"
+                    f"&method=Download&version=6&id={rec_id}"
+                    # Callers must append &_sid=<sid> — not embedded here to avoid token leakage.
                 )
                 clips.append(
                     Clip(
                         id=rec_id,
                         camera_id=rec_cam_id,
                         camera_name=rec.get("camera_name") or f"Camera {rec_cam_id}",
-                        start_time=datetime.fromtimestamp(int(start_ts)),
-                        end_time=datetime.fromtimestamp(int(stop_ts)),
+                        start_time=datetime.fromtimestamp(int(start_ts), tz=timezone.utc),
+                        end_time=datetime.fromtimestamp(int(stop_ts), tz=timezone.utc),
                         download_url=download,
                         size_bytes=rec.get("size"),
                         metadata={"source": "synology", "reason": rec.get("reason")},
@@ -338,9 +353,10 @@ class SynologyAdapter(BaseAdapter):
                 camera_id = cam.id
         if not camera_id:
             return None
+        sid = self._sid or ""
         return (
             f"{self.host}/webapi/entry.cgi?api=SYNO.SurveillanceStation.Camera"
-            f"&method=GetSnapshot&version=9&id={camera_id}&_sid={self._sid}"
+            f"&method=GetSnapshot&version=9&id={camera_id}&_sid={sid}"
         )
 
     # ------------------------------------------------------------------

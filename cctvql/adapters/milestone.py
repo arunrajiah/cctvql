@@ -13,7 +13,8 @@ API reference:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -29,6 +30,15 @@ from cctvql.core.schema import (
 )
 
 logger = logging.getLogger(__name__)
+
+_SAFE_ID_RE = re.compile(r"^[\w\-]+$")
+
+
+def _safe_odata_id(value: str) -> str:
+    """Reject values that could escape an OData string literal."""
+    if not _SAFE_ID_RE.match(value):
+        raise ValueError(f"Unsafe id for OData filter: {value!r}")
+    return value
 
 
 class MilestoneAdapter(BaseAdapter):
@@ -60,6 +70,7 @@ class MilestoneAdapter(BaseAdapter):
         client_id: str = "GrantValidatorClient",
         grant_type: str = "password",
         api_timeout: float = 30.0,
+        ssl_verify: bool = True,
     ) -> None:
         self.host = host.rstrip("/")
         self.username = username
@@ -67,7 +78,7 @@ class MilestoneAdapter(BaseAdapter):
         self.client_id = client_id
         self.grant_type = grant_type
         self._token: str | None = None
-        self._client = httpx.AsyncClient(timeout=api_timeout, verify=False)
+        self._client = httpx.AsyncClient(timeout=api_timeout, verify=ssl_verify)
 
     @property
     def name(self) -> str:
@@ -117,12 +128,12 @@ class MilestoneAdapter(BaseAdapter):
         return {"Authorization": f"Bearer {self._token}", "Accept": "application/json"}
 
     async def _get(self, path: str, **params: Any) -> dict[str, Any]:
-        """GET /api/rest/v1/<path> as JSON."""
-        r = await self._client.get(
-            f"{self.host}/api/rest/v1/{path.lstrip('/')}",
-            headers=self._headers(),
-            params={k: v for k, v in params.items() if v is not None},
-        )
+        """GET /api/rest/v1/<path> as JSON, with one automatic token refresh on 401."""
+        url = f"{self.host}/api/rest/v1/{path.lstrip('/')}"
+        filtered = {k: v for k, v in params.items() if v is not None}
+        r = await self._client.get(url, headers=self._headers(), params=filtered)
+        if r.status_code == 401 and await self.connect():
+            r = await self._client.get(url, headers=self._headers(), params=filtered)
         r.raise_for_status()
         return r.json()
 
@@ -212,7 +223,7 @@ class MilestoneAdapter(BaseAdapter):
         params: dict[str, Any] = {"$top": limit}
         filters: list[str] = []
         if camera_id:
-            filters.append(f"sourceId eq '{camera_id}'")
+            filters.append(f"sourceId eq '{_safe_odata_id(camera_id)}'")
         if start_time:
             filters.append(f"timestamp ge {start_time.isoformat()}")
         if end_time:
@@ -232,7 +243,7 @@ class MilestoneAdapter(BaseAdapter):
                         camera_id=ev_cam_id,
                         camera_name=alarm.get("sourceName") or f"Camera {ev_cam_id}",
                         event_type=self._map_event_type(alarm.get("category")),
-                        start_time=self._parse_iso(ts) if ts else datetime.now(),
+                        start_time=self._parse_iso(ts) if ts else datetime.now(tz=timezone.utc),
                         end_time=None,
                         metadata={
                             "source": "milestone",
@@ -259,7 +270,7 @@ class MilestoneAdapter(BaseAdapter):
                 camera_id=cam_id,
                 camera_name=alarm.get("sourceName") or f"Camera {cam_id}",
                 event_type=self._map_event_type(alarm.get("category")),
-                start_time=self._parse_iso(ts) if ts else datetime.now(),
+                start_time=self._parse_iso(ts) if ts else datetime.now(tz=timezone.utc),
                 metadata={"source": "milestone"},
             )
         except Exception as exc:
@@ -287,7 +298,7 @@ class MilestoneAdapter(BaseAdapter):
         params: dict[str, Any] = {"$top": limit}
         filters: list[str] = []
         if camera_id:
-            filters.append(f"cameraId eq '{camera_id}'")
+            filters.append(f"cameraId eq '{_safe_odata_id(camera_id)}'")
         if start_time:
             filters.append(f"startTime ge {start_time.isoformat()}")
         if end_time:
@@ -307,8 +318,8 @@ class MilestoneAdapter(BaseAdapter):
                         id=str(bm.get("id") or ""),
                         camera_id=bm_cam,
                         camera_name=bm.get("cameraName") or f"Camera {bm_cam}",
-                        start_time=self._parse_iso(start) if start else datetime.now(),
-                        end_time=self._parse_iso(stop) if stop else datetime.now(),
+                        start_time=self._parse_iso(start) if start else datetime.now(tz=timezone.utc),
+                        end_time=self._parse_iso(stop) if stop else datetime.now(tz=timezone.utc),
                         metadata={
                             "source": "milestone",
                             "header": bm.get("header"),
@@ -402,4 +413,4 @@ class MilestoneAdapter(BaseAdapter):
         try:
             return datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
         except (TypeError, ValueError):
-            return datetime.now()
+            return datetime.now(tz=timezone.utc)

@@ -175,6 +175,64 @@ async def test_get_snapshot_url_no_id_returns_none(adapter):
 
 
 # ---------------------------------------------------------------------------
+# get_clips
+# ---------------------------------------------------------------------------
+
+
+async def test_get_clips_parses_bookmarks(adapter):
+    adapter._token = "tok"
+    payload = {
+        "array": [
+            {
+                "id": "bm-1",
+                "cameraId": "cam-1",
+                "cameraName": "Lobby",
+                "startTime": "2026-04-17T10:00:00Z",
+                "endTime": "2026-04-17T10:01:00Z",
+                "header": "Suspicious activity",
+                "description": "Person loitering",
+            }
+        ]
+    }
+    adapter._client.get = AsyncMock(return_value=_mock_json_response(payload))
+
+    clips = await adapter.get_clips(camera_id="cam-1")
+    assert len(clips) == 1
+    clip = clips[0]
+    assert clip.id == "bm-1"
+    assert clip.camera_id == "cam-1"
+    assert clip.camera_name == "Lobby"
+    assert clip.end_time > clip.start_time
+    assert clip.metadata["header"] == "Suspicious activity"
+
+
+async def test_get_clips_returns_empty_on_error(adapter):
+    adapter._token = "tok"
+    adapter._client.get = AsyncMock(side_effect=Exception("boom"))
+    assert await adapter.get_clips() == []
+
+
+# ---------------------------------------------------------------------------
+# OData filter validation
+# ---------------------------------------------------------------------------
+
+
+def test_safe_odata_id_rejects_injection():
+    from cctvql.adapters.milestone import _safe_odata_id
+
+    import pytest
+
+    with pytest.raises(ValueError):
+        _safe_odata_id("cam' or '1'='1")
+
+
+def test_safe_odata_id_accepts_guid():
+    from cctvql.adapters.milestone import _safe_odata_id
+
+    assert _safe_odata_id("a0b1c2d3-e4f5-6789-abcd-ef0123456789") == "a0b1c2d3-e4f5-6789-abcd-ef0123456789"
+
+
+# ---------------------------------------------------------------------------
 # ISO parser
 # ---------------------------------------------------------------------------
 

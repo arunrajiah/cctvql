@@ -189,6 +189,43 @@ async def test_health_check_exception(adapter):
 
 
 # ---------------------------------------------------------------------------
+# get_clips
+# ---------------------------------------------------------------------------
+
+
+async def test_get_clips_parses_recordings(adapter):
+    payload = {
+        "recordings": [
+            {
+                "id": "rec-1",
+                "device": "dev-1",
+                "deviceName": "Front Camera",
+                "startTime": 1_700_000_000_000,
+                "endTime": 1_700_000_060_000,
+                "url": "https://scrypted.local/recordings/rec-1.mp4",
+                "size": 2_097_152,
+            }
+        ]
+    }
+    adapter._client.get = AsyncMock(return_value=_mock_json_response(payload))
+
+    clips = await adapter.get_clips(camera_id="dev-1")
+    assert len(clips) == 1
+    clip = clips[0]
+    assert clip.id == "rec-1"
+    assert clip.camera_id == "dev-1"
+    assert clip.camera_name == "Front Camera"
+    assert clip.download_url == "https://scrypted.local/recordings/rec-1.mp4"
+    assert clip.size_bytes == 2_097_152
+    assert clip.end_time > clip.start_time
+
+
+async def test_get_clips_returns_empty_on_error(adapter):
+    adapter._client.get = AsyncMock(side_effect=Exception("network error"))
+    assert await adapter.get_clips() == []
+
+
+# ---------------------------------------------------------------------------
 # PTZ
 # ---------------------------------------------------------------------------
 

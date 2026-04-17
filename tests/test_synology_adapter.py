@@ -129,8 +129,9 @@ async def test_get_snapshot_url_by_id(adapter):
     url = await adapter.get_snapshot_url(camera_id="5")
     assert url is not None
     assert "id=5" in url
-    assert "_sid=SID" in url
     assert "GetSnapshot" in url
+    # SID is injected at call-time by get_snapshot_url(), not baked into Camera model URLs
+    assert "_sid=SID" in url
 
 
 async def test_get_snapshot_url_returns_none_without_id_or_name(adapter):
@@ -179,6 +180,47 @@ def test_event_type_mapping():
     assert SynologyAdapter._map_event_type(7) == EventType.AUDIO
     assert SynologyAdapter._map_event_type(99) == EventType.UNKNOWN
     assert SynologyAdapter._map_event_type(None) == EventType.UNKNOWN
+
+
+# ---------------------------------------------------------------------------
+# get_clips
+# ---------------------------------------------------------------------------
+
+
+async def test_get_clips_parses_response(adapter):
+    adapter._sid = "SID"
+    payload = {
+        "success": True,
+        "data": {
+            "recordings": [
+                {
+                    "id": 10,
+                    "camera_id": 1,
+                    "camera_name": "Front Door",
+                    "startTime": 1_700_000_000,
+                    "stopTime": 1_700_000_060,
+                    "size": 1_048_576,
+                    "reason": 2,
+                }
+            ]
+        },
+    }
+    adapter._client.get = AsyncMock(return_value=_mock_json_response(payload))
+
+    clips = await adapter.get_clips()
+    assert len(clips) == 1
+    clip = clips[0]
+    assert clip.id == "10"
+    assert clip.camera_name == "Front Door"
+    assert clip.size_bytes == 1_048_576
+    assert "id=10" in clip.download_url
+    assert clip.end_time > clip.start_time
+
+
+async def test_get_clips_returns_empty_on_error(adapter):
+    adapter._sid = "SID"
+    adapter._client.get = AsyncMock(side_effect=Exception("network error"))
+    assert await adapter.get_clips() == []
 
 
 # ---------------------------------------------------------------------------
