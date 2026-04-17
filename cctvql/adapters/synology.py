@@ -242,7 +242,11 @@ class SynologyAdapter(BaseAdapter):
                         camera_name=ev.get("camera_name") or f"Camera {ev_cam_id}",
                         event_type=self._map_event_type(ev.get("reason")),
                         start_time=datetime.fromtimestamp(int(start_ts), tz=timezone.utc),
-                        end_time=datetime.fromtimestamp(int(stop_ts), tz=timezone.utc) if stop_ts else None,
+                        end_time=(
+                            datetime.fromtimestamp(int(stop_ts), tz=timezone.utc)
+                            if stop_ts
+                            else None
+                        ),
                         metadata={
                             "source": "synology",
                             "reason": ev.get("reason"),
