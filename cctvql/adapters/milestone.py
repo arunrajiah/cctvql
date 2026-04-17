@@ -321,9 +321,7 @@ class MilestoneAdapter(BaseAdapter):
                         start_time=(
                             self._parse_iso(start) if start else datetime.now(tz=timezone.utc)
                         ),
-                        end_time=(
-                            self._parse_iso(stop) if stop else datetime.now(tz=timezone.utc)
-                        ),
+                        end_time=(self._parse_iso(stop) if stop else datetime.now(tz=timezone.utc)),
                         metadata={
                             "source": "milestone",
                             "header": bm.get("header"),
