@@ -45,6 +45,7 @@ class AlertRule:
     time_start: str | None  # "22:00" HH:MM — window start
     time_end: str | None  # "06:00" HH:MM — window end (may wrap midnight)
     webhook_url: str | None  # POST JSON when triggered
+    cooldown_seconds: int = 300  # min seconds between firings (0 = no cooldown)
     enabled: bool = True
     created_at: datetime = field(default_factory=datetime.now)
     last_triggered: datetime | None = None
@@ -184,8 +185,16 @@ class AlertEngine:
             self._seen_event_ids.add(event.id)
 
             for rule in enabled_rules:
-                if self._event_matches_rule(rule, event):
-                    await self._fire_alert(rule, event)
+                if not self._event_matches_rule(rule, event):
+                    continue
+                if self._in_cooldown(rule):
+                    logger.debug(
+                        "AlertEngine: rule '%s' in cooldown, skipping event %s",
+                        rule.name,
+                        event.id,
+                    )
+                    continue
+                await self._fire_alert(rule, event)
 
         # Prevent unbounded growth — keep only the last 10,000 event IDs.
         if len(self._seen_event_ids) > 10_000:
@@ -261,6 +270,13 @@ class AlertEngine:
     # ------------------------------------------------------------------
     # Matching logic
     # ------------------------------------------------------------------
+
+    def _in_cooldown(self, rule: AlertRule) -> bool:
+        """Return True if the rule fired recently and is still within its cooldown window."""
+        if rule.cooldown_seconds <= 0 or rule.last_triggered is None:
+            return False
+        elapsed = (datetime.now() - rule.last_triggered).total_seconds()
+        return elapsed < rule.cooldown_seconds
 
     def _event_matches_rule(self, rule: AlertRule, event) -> bool:
         """Return True if *event* satisfies all conditions in *rule*."""
@@ -342,6 +358,7 @@ def make_rule_from_context(
     time_start: str | None = None,
     time_end: str | None = None,
     webhook_url: str | None = None,
+    cooldown_seconds: int = 300,
 ) -> AlertRule:
     """
     Convenience factory used by the QueryRouter's set_alert handler to build
@@ -357,4 +374,5 @@ def make_rule_from_context(
         time_start=time_start,
         time_end=time_end,
         webhook_url=webhook_url,
+        cooldown_seconds=cooldown_seconds,
     )

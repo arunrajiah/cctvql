@@ -250,6 +250,7 @@ class AlertRuleCreate(BaseModel):
     time_start: str | None = None  # "22:00" HH:MM
     time_end: str | None = None  # "06:00" HH:MM
     webhook_url: str | None = None
+    cooldown_seconds: int = 300  # min seconds between firings (0 = no cooldown)
 
 
 class AlertRuleUpdate(BaseModel):
@@ -261,6 +262,7 @@ class AlertRuleUpdate(BaseModel):
     time_start: str | None = None
     time_end: str | None = None
     webhook_url: str | None = None
+    cooldown_seconds: int | None = None
 
 
 class AlertRuleResponse(BaseModel):
@@ -273,6 +275,7 @@ class AlertRuleResponse(BaseModel):
     time_start: str | None
     time_end: str | None
     webhook_url: str | None
+    cooldown_seconds: int
     enabled: bool
     created_at: str
     last_triggered: str | None
@@ -897,6 +900,7 @@ def _rule_to_response(rule) -> AlertRuleResponse:
         time_start=rule.time_start,
         time_end=rule.time_end,
         webhook_url=rule.webhook_url,
+        cooldown_seconds=rule.cooldown_seconds,
         enabled=rule.enabled,
         created_at=rule.created_at.isoformat(),
         last_triggered=rule.last_triggered.isoformat() if rule.last_triggered else None,
@@ -930,6 +934,7 @@ async def create_alert_rule(body: AlertRuleCreate) -> AlertRuleResponse:
         time_start=body.time_start,
         time_end=body.time_end,
         webhook_url=body.webhook_url,
+        cooldown_seconds=body.cooldown_seconds,
     )
     engine.add_rule(rule)
     return _rule_to_response(rule)

@@ -67,6 +67,12 @@ Time interpretation rules:
 - "this morning" = today 06:00 to 12:00
 - Always use the current datetime as reference.
 - For detect_anomalies: use start_time/end_time for the observe window. Default to last 24h.
+- IMPORTANT — precise time queries (incident review):
+  When the user asks about "at HH:MM" or "around HH:MM" or "at HH:MM on DATE",
+  always create a ±10 minute window: start_time = that moment minus 10 minutes,
+  end_time = that moment plus 10 minutes. Never use a single point in time.
+  Example: "was the gate open at 2:14 on March 8" →
+    start_time = "YEAR-03-08T02:04:00", end_time = "YEAR-03-08T02:24:00"
 
 Current datetime: {current_datetime}
 """
