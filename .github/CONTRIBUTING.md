@@ -117,13 +117,25 @@ ruff check cctvql/
 
 ---
 
-## Pull Request Guidelines
+## Pull Request Process
 
-- Keep PRs focused — one adapter or feature per PR
-- Include tests for new code
-- Update `README.md` compatibility table for new adapters
-- Use descriptive commit messages
-- Don't add external dependencies without discussion
+### How PRs are reviewed
+
+1. **Open a PR** against `main` with a filled-out description (the template will guide you).
+2. **Automated checks** run — lint, type-check, tests on Python 3.10–3.13, and a Docker build.
+3. **Bot auto-approval** — once all CI jobs pass, `github-actions[bot]` approves the PR and pings the maintainer.
+4. **Final review** — @arunrajiah reviews the code and merges (or requests changes).
+
+PRs cannot merge until all CI checks are green **and** the maintainer has approved.
+
+### PR guidelines
+
+- Use [conventional commit](https://www.conventionalcommits.org/) prefixes in the title: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:` — this drives auto-labeling.
+- Keep PRs focused — one adapter or feature per PR. Large PRs (>500 lines) get a size warning.
+- Include tests for new code.
+- Update `README.md` compatibility table for new adapters.
+- Add a `CHANGELOG.md` entry under `[Unreleased]`.
+- Don't add external dependencies without discussion.
 
 ---
 

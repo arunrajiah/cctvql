@@ -578,6 +578,7 @@ List all configured alert rules.
     "time_start": "22:00",
     "time_end": "06:00",
     "webhook_url": "https://example.com/hook",
+    "cooldown_seconds": 300,
     "enabled": true,
     "created_at": "2026-04-13T18:00:00"
   }
@@ -597,7 +598,8 @@ Create a new alert rule.
   "label": "person",
   "time_start": "22:00",
   "time_end": "06:00",
-  "webhook_url": "https://example.com/hook"
+  "webhook_url": "https://example.com/hook",
+  "cooldown_seconds": 300
 }
 ```
 
@@ -608,8 +610,9 @@ Create a new alert rule.
 | `camera_name` | string | ❌ | Restrict to a specific camera (any camera if omitted) |
 | `label` | string | ❌ | Restrict to a specific object label |
 | `time_start` | string | ❌ | Active window start (`HH:MM`, 24h) |
-| `time_end` | string | ❌ | Active window end (`HH:MM`, 24h) |
+| `time_end` | string | ❌ | Active window end (`HH:MM`, 24h, may wrap midnight e.g. `22:00`–`06:00`) |
 | `webhook_url` | string | ❌ | Fire a POST to this URL on match |
+| `cooldown_seconds` | integer | ❌ | Minimum seconds between firings (default `300`; `0` = no cooldown) |
 
 Returns `201 Created` with the created rule including its `id`.
 

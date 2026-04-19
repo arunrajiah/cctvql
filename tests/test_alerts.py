@@ -27,6 +27,7 @@ def _make_rule(
     time_start: str | None = None,
     time_end: str | None = None,
     webhook_url: str | None = None,
+    cooldown_seconds: int = 300,
     name: str = "Test Rule",
 ) -> AlertRule:
     return AlertRule(
@@ -39,6 +40,7 @@ def _make_rule(
         time_start=time_start,
         time_end=time_end,
         webhook_url=webhook_url,
+        cooldown_seconds=cooldown_seconds,
     )
 
 
@@ -361,3 +363,104 @@ def test_update_rule_modifies_field(engine):
 def test_update_rule_nonexistent_returns_none(engine):
     result = engine.update_rule("missing-id", name="Whatever")
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Cooldown logic
+# ---------------------------------------------------------------------------
+
+
+def test_rule_default_cooldown_is_300(engine):
+    rule = _make_rule(label="person")
+    assert rule.cooldown_seconds == 300
+
+
+def test_no_cooldown_when_never_triggered(engine):
+    rule = _make_rule(label="person")
+    assert engine._in_cooldown(rule) is False
+
+
+def test_in_cooldown_immediately_after_fire(engine):
+    rule = _make_rule(label="person")
+    rule.last_triggered = datetime.now()
+    rule.cooldown_seconds = 300
+    assert engine._in_cooldown(rule) is True
+
+
+def test_not_in_cooldown_after_window_expires(engine):
+    from datetime import timedelta
+
+    rule = _make_rule(label="person")
+    rule.cooldown_seconds = 60
+    rule.last_triggered = datetime.now() - timedelta(seconds=61)
+    assert engine._in_cooldown(rule) is False
+
+
+def test_still_in_cooldown_before_window_expires(engine):
+    from datetime import timedelta
+
+    rule = _make_rule(label="person")
+    rule.cooldown_seconds = 300
+    rule.last_triggered = datetime.now() - timedelta(seconds=100)
+    assert engine._in_cooldown(rule) is True
+
+
+def test_zero_cooldown_never_blocks(engine):
+    rule = _make_rule(label="person")
+    rule.cooldown_seconds = 0
+    rule.last_triggered = datetime.now()
+    assert engine._in_cooldown(rule) is False
+
+
+async def test_cooldown_prevents_second_fire(engine):
+    """A rule with a long cooldown should only fire once for two matching events."""
+    rule = _make_rule(label="person", cooldown_seconds=3600)
+    engine.add_rule(rule)
+
+    event1 = _make_event(objects=[DetectedObject(label="person", confidence=0.9)])
+    event2 = _make_event(objects=[DetectedObject(label="person", confidence=0.9)])
+
+    fire_count = 0
+
+    async def mock_fire(r, e):
+        nonlocal fire_count
+        fire_count += 1
+        r.last_triggered = datetime.now()
+        r.trigger_count += 1
+
+    engine._fire_alert = mock_fire  # type: ignore[method-assign]
+
+    # Simulate two events in sequence
+    for evt in [event1, event2]:
+        engine._seen_event_ids.discard(evt.id)  # ensure not deduped by ID
+        if engine._event_matches_rule(rule, evt) and not engine._in_cooldown(rule):
+            await engine._fire_alert(rule, evt)
+
+    assert fire_count == 1
+
+
+async def test_cooldown_allows_fire_after_window(engine):
+    """After the cooldown expires the rule fires again."""
+    from datetime import timedelta
+
+    rule = _make_rule(label="person", cooldown_seconds=1)
+    engine.add_rule(rule)
+    rule.last_triggered = datetime.now() - timedelta(seconds=2)
+
+    event = _make_event(objects=[DetectedObject(label="person", confidence=0.9)])
+    assert engine._event_matches_rule(rule, event)
+    assert not engine._in_cooldown(rule)
+
+
+def test_make_rule_from_context_sets_cooldown():
+    rule = make_rule_from_context(
+        name="Gate Alert",
+        description="gate propped open",
+        cooldown_seconds=600,
+    )
+    assert rule.cooldown_seconds == 600
+
+
+def test_make_rule_from_context_default_cooldown():
+    rule = make_rule_from_context(name="Default Cooldown", description="test")
+    assert rule.cooldown_seconds == 300
