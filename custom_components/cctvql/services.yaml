@@ -1,0 +1,77 @@
+query:
+  name: Query
+  description: Ask cctvQL a natural language question about your cameras.
+  fields:
+    query:
+      name: Query
+      description: 'Natural language question, e.g. "Were there people on the driveway last night?"'
+      required: true
+      example: "Any people on the front door in the last hour?"
+      selector:
+        text:
+    session_id:
+      name: Session ID
+      description: Session ID for multi-turn conversations (default: homeassistant).
+      required: false
+      example: homeassistant
+      selector:
+        text:
+
+ptz:
+  name: PTZ
+  description: Send a pan/tilt/zoom command to a camera.
+  fields:
+    camera_id:
+      name: Camera ID
+      description: Camera ID as shown in the cameras list.
+      required: true
+      example: front_door
+      selector:
+        text:
+    action:
+      name: Action
+      description: "PTZ action to perform."
+      required: true
+      example: left
+      selector:
+        select:
+          options:
+            - left
+            - right
+            - up
+            - down
+            - zoom_in
+            - zoom_out
+            - home
+            - preset
+    speed:
+      name: Speed
+      description: Movement speed 1–100 (default 50).
+      required: false
+      example: 50
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: slider
+    preset_id:
+      name: Preset ID
+      description: Preset number to move to. Required when action is preset.
+      required: false
+      example: 1
+      selector:
+        number:
+          min: 1
+          max: 255
+
+clear_session:
+  name: Clear Session
+  description: Clear the cctvQL conversation history for a session.
+  fields:
+    session_id:
+      name: Session ID
+      description: Session to clear (default: homeassistant).
+      required: false
+      example: homeassistant
+      selector:
+        text:

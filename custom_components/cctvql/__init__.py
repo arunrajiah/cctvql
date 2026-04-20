@@ -97,8 +97,15 @@ def _register_services(hass: HomeAssistant, client: CctvqlClient) -> None:
         """cctvql.query — ask cctvQL a natural language question."""
         query_text: str = call.data["query"]
         session_id: str = call.data.get("session_id", "homeassistant")
-        result = await client.query(query_text, session_id=session_id)
-        # Fire an event so automations / scripts can read the answer
+        try:
+            result = await client.query(query_text, session_id=session_id)
+        except Exception as exc:
+            logger.error("cctvql.query failed: %s", exc)
+            hass.bus.async_fire(
+                f"{DOMAIN}_service_error",
+                {"service": "query", "error": str(exc)},
+            )
+            return
         hass.bus.async_fire(
             f"{DOMAIN}_query_result",
             {
@@ -115,15 +122,33 @@ def _register_services(hass: HomeAssistant, client: CctvqlClient) -> None:
         action: str = call.data["action"]
         if action not in PTZ_ACTIONS:
             logger.error("cctvql.ptz: invalid action '%s'", action)
+            hass.bus.async_fire(
+                f"{DOMAIN}_service_error",
+                {"service": "ptz", "error": f"Invalid action: {action}"},
+            )
             return
         speed: int = call.data.get("speed", 50)
         preset_id: int | None = call.data.get("preset_id")
-        await client.ptz(camera_id, action=action, speed=speed, preset_id=preset_id)
+        try:
+            await client.ptz(camera_id, action=action, speed=speed, preset_id=preset_id)
+        except Exception as exc:
+            logger.error("cctvql.ptz failed for camera '%s': %s", camera_id, exc)
+            hass.bus.async_fire(
+                f"{DOMAIN}_service_error",
+                {"service": "ptz", "camera_id": camera_id, "error": str(exc)},
+            )
 
     async def handle_clear_session(call: ServiceCall) -> None:
         """cctvql.clear_session — reset conversation history."""
         session_id: str = call.data.get("session_id", "homeassistant")
-        await client.clear_session(session_id)
+        try:
+            await client.clear_session(session_id)
+        except Exception as exc:
+            logger.error("cctvql.clear_session failed for session '%s': %s", session_id, exc)
+            hass.bus.async_fire(
+                f"{DOMAIN}_service_error",
+                {"service": "clear_session", "session_id": session_id, "error": str(exc)},
+            )
 
     hass.services.async_register(DOMAIN, "query", handle_query)
     hass.services.async_register(DOMAIN, "ptz", handle_ptz)

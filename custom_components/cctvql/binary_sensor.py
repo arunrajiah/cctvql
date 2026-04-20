@@ -30,8 +30,12 @@ async def async_setup_entry(
 ) -> None:
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
-    cameras: list[dict] = coordinator.data.get("cameras", [])
-    entities = [CctvqlMotionBinarySensor(coordinator, entry, cam) for cam in cameras]
+    cameras: list[dict] = coordinator.data.get("cameras", []) or []
+    entities = [
+        CctvqlMotionBinarySensor(coordinator, entry, cam)
+        for cam in cameras
+        if isinstance(cam, dict) and cam.get("id")
+    ]
     async_add_entities(entities)
 
 
@@ -83,4 +87,7 @@ class CctvqlMotionBinarySensor(CoordinatorEntity, BinarySensorEntity):
             "name": "cctvQL",
             "manufacturer": "cctvQL",
             "model": "CCTV Query Layer",
+            "configuration_url": (
+                f"http://{self._entry.data['host']}:{self._entry.data['port']}/docs"
+            ),
         }
