@@ -1,0 +1,82 @@
+version: "3.9"
+
+# cctvQL + Frigate sidecar deployment
+#
+# cctvQL runs alongside Frigate and connects to it via REST + MQTT.
+# Both share the same MQTT broker (Mosquitto) for real-time event streaming.
+#
+# Usage:
+#   1. Copy config/cctvql.yaml from the template below and fill in your details
+#   2. docker compose up -d
+
+services:
+  # -------------------------------------------------------------------------
+  # Frigate NVR
+  # -------------------------------------------------------------------------
+  frigate:
+    container_name: frigate
+    image: ghcr.io/blakeblackshear/frigate:stable
+    privileged: true
+    restart: unless-stopped
+    shm_size: "256mb"
+    devices:
+      - /dev/bus/usb:/dev/bus/usb   # Coral USB (remove if not used)
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./config/frigate.yml:/config/config.yml:ro
+      - ./storage/frigate:/media/frigate
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    ports:
+      - "5000:5000"   # Frigate web UI + REST API
+      - "8554:8554"   # RTSP restream
+      - "8555:8555/tcp"
+      - "8555:8555/udp"
+    environment:
+      FRIGATE_RTSP_PASSWORD: "${FRIGATE_RTSP_PASSWORD:-changeme}"
+    depends_on:
+      - mqtt
+
+  # -------------------------------------------------------------------------
+  # MQTT broker (shared by Frigate and cctvQL)
+  # -------------------------------------------------------------------------
+  mqtt:
+    container_name: mqtt
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./storage/mqtt:/mosquitto/data
+    ports:
+      - "1883:1883"
+
+  # -------------------------------------------------------------------------
+  # cctvQL — natural language query layer
+  # -------------------------------------------------------------------------
+  cctvql:
+    container_name: cctvql
+    image: ghcr.io/arunrajiah/cctvql:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"   # cctvQL REST API + Swagger UI at /docs
+    volumes:
+      - ./config/cctvql.yaml:/app/config/config.yaml:ro
+      - ./storage/cctvql:/app/data
+    environment:
+      CCTVQL_DB_PATH: /app/data/cctvql.db
+      # Optional: set to enable API key authentication
+      # CCTVQL_API_KEY: "your-secret-key"
+      # Optional: enable multi-tenant JWT auth
+      # CCTVQL_MULTI_TENANT: "1"
+      # CCTVQL_SECRET_KEY: "your-jwt-secret"
+    depends_on:
+      - frigate
+      - mqtt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

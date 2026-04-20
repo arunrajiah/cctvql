@@ -1,0 +1,35 @@
+# cctvQL configuration for Frigate sidecar deployment
+# Rename to config.yaml and adjust values for your environment.
+
+logging:
+  level: INFO
+
+llm:
+  active: ollama   # change to openai or anthropic if preferred
+
+  backends:
+    ollama:
+      provider: ollama
+      host: http://host.docker.internal:11434   # Ollama on the host machine
+      model: llama3
+
+    openai:
+      provider: openai
+      model: gpt-4o-mini
+      api_key: ""   # or set OPENAI_API_KEY env var
+
+    anthropic:
+      provider: anthropic
+      model: claude-haiku-4-5-20251001
+      api_key: ""   # or set ANTHROPIC_API_KEY env var
+
+adapters:
+  active: frigate
+
+  systems:
+    frigate:
+      type: frigate
+      host: http://frigate:5000        # Docker service name
+      mqtt_host: mqtt                  # Docker service name
+      mqtt_port: 1883
+      mqtt_topic_prefix: frigate       # must match Frigate's mqtt.topic_prefix
