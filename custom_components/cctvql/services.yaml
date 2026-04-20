@@ -11,7 +11,7 @@ query:
         text:
     session_id:
       name: Session ID
-      description: Session ID for multi-turn conversations (default: homeassistant).
+      description: "Session ID for multi-turn conversations (default: homeassistant)."
       required: false
       example: homeassistant
       selector:
@@ -70,7 +70,7 @@ clear_session:
   fields:
     session_id:
       name: Session ID
-      description: Session to clear (default: homeassistant).
+      description: "Session to clear (default: homeassistant)."
       required: false
       example: homeassistant
       selector:

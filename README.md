@@ -158,6 +158,7 @@ cctvql chat
 | LLM backend setup | [docs/llm-backends.md](docs/llm-backends.md) |
 | Home Assistant integration | [docs/home-assistant.md](docs/home-assistant.md) |
 | Docker deployment | [docs/docker.md](docs/docker.md) |
+| Frigate + cctvQL sidecar | [deploy/frigate-sidecar/](deploy/frigate-sidecar/) |
 | Troubleshooting | [docs/troubleshooting.md](docs/troubleshooting.md) |
 
 ---
@@ -166,7 +167,7 @@ cctvql chat
 
 | System | Type | Adapter | Status |
 |--------|------|---------|--------|
-| [Frigate NVR](https://frigate.video) | NVR | `frigate` | ✅ Full support (REST + MQTT) |
+| [Frigate NVR](https://frigate.video) | NVR | `frigate` | ✅ Full support (REST + MQTT) — [sidecar template](deploy/frigate-sidecar/) |
 | Any ONVIF camera/NVR | Camera/NVR | `onvif` | ✅ Full support |
 | Demo / Mock | Built-in | `demo` | ✅ No hardware needed — try cctvQL now |
 | Hikvision | NVR/Camera | `hikvision` | ✅ Full support (ISAPI) |
