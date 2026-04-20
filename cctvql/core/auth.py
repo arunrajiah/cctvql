@@ -156,11 +156,10 @@ class AuthManager:
         header_b64, body_b64, sig_b64 = parts
         signing_input = f"{header_b64}.{body_b64}".encode()
         expected_sig = hmac.new(self._secret, signing_input, hashlib.sha256).digest()
-        try:
-            provided_sig = base64.urlsafe_b64decode(sig_b64 + "==")
-        except Exception:
-            return None
-        if not hmac.compare_digest(expected_sig, provided_sig):
+        expected_sig_b64 = base64.urlsafe_b64encode(expected_sig).rstrip(b"=").decode()
+        # Compare base64 strings directly — decoding before compare would silently
+        # discard trailing padding bits, allowing a 1-char tamper to go undetected.
+        if not hmac.compare_digest(expected_sig_b64, sig_b64):
             return None
 
         try:
