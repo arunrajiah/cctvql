@@ -53,26 +53,42 @@ class CctvqlClient:
         return await self._get("/events", params={"limit": limit})
 
     async def fetch_all(self) -> dict[str, Any]:
-        """Fetch health, cameras, camera_health and events in one call."""
+        """Fetch health, cameras, camera_health and events in one call.
+
+        Each endpoint is fetched independently so a single failure only nullifies
+        that key rather than aborting the entire update.
+        """
         async with httpx.AsyncClient(headers=self._headers, timeout=_TIMEOUT) as client:
-            health_resp = await client.get(f"{self.base_url}/health")
-            health_resp.raise_for_status()
-
-            cameras_resp = await client.get(f"{self.base_url}/cameras")
-            cameras_resp.raise_for_status()
-
-            cam_health_resp = await client.get(f"{self.base_url}/health/cameras")
-            cam_health_resp.raise_for_status()
-
-            events_resp = await client.get(f"{self.base_url}/events", params={"limit": 50})
-            events_resp.raise_for_status()
+            health = await self._safe_get(client, "/health", default={})
+            cameras = await self._safe_get(client, "/cameras", default=[])
+            camera_health = await self._safe_get(client, "/health/cameras", default=[])
+            events = await self._safe_get(
+                client, "/events", params={"limit": 50}, default=[]
+            )
 
         return {
-            "health": health_resp.json(),
-            "cameras": cameras_resp.json(),
-            "camera_health": cam_health_resp.json(),
-            "events": events_resp.json(),
+            "health": health,
+            "cameras": cameras,
+            "camera_health": camera_health,
+            "events": events,
         }
+
+    async def _safe_get(
+        self,
+        client: httpx.AsyncClient,
+        path: str,
+        *,
+        params: dict | None = None,
+        default: Any,
+    ) -> Any:
+        """GET a path, returning *default* on any error instead of raising."""
+        try:
+            resp = await client.get(f"{self.base_url}{path}", params=params)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception:
+            logger.warning("cctvQL: failed to fetch %s — returning default", path)
+            return default
 
     # ------------------------------------------------------------------
     # Actions
