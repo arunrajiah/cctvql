@@ -62,9 +62,7 @@ class CctvqlClient:
             health = await self._safe_get(client, "/health", default={})
             cameras = await self._safe_get(client, "/cameras", default=[])
             camera_health = await self._safe_get(client, "/health/cameras", default=[])
-            events = await self._safe_get(
-                client, "/events", params={"limit": 50}, default=[]
-            )
+            events = await self._safe_get(client, "/events", params={"limit": 50}, default=[])
 
         return {
             "health": health,
