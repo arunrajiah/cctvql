@@ -1,0 +1,45 @@
+{
+  "name": "iobroker.cctvql",
+  "version": "1.0.0",
+  "description": "ioBroker adapter for cctvQL — natural-language CCTV queries, live events, and PTZ control across Frigate, Hikvision, Synology, Dahua, and more.",
+  "author": {
+    "name": "arunrajiah",
+    "email": "arunrajiah@gmail.com"
+  },
+  "homepage": "https://github.com/arunrajiah/cctvql/tree/main/integrations/ioBroker.cctvql",
+  "license": "MIT",
+  "keywords": [
+    "ioBroker",
+    "cctv",
+    "camera",
+    "nvr",
+    "frigate",
+    "hikvision",
+    "nlp",
+    "surveillance"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arunrajiah/cctvql.git",
+    "directory": "integrations/ioBroker.cctvql"
+  },
+  "bugs": {
+    "url": "https://github.com/arunrajiah/cctvql/issues"
+  },
+  "main": "main.js",
+  "files": [
+    "admin/",
+    "main.js",
+    "io-package.json"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@iobroker/adapter-core": "^3.0.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@iobroker/testing": "^4.1.0"
+  }
+}

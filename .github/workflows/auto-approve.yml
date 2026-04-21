@@ -1,0 +1,53 @@
+name: Auto Approve
+
+# Runs after CI completes. If every job passed, the bot approves the PR
+# so contributors get immediate feedback. @arunrajiah's review (required
+# via CODEOWNERS) is still needed before the PR can merge.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  auto-approve:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve PR number
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPO: ${{ github.repository }}
+          # For same-repo PRs GitHub populates pull_requests directly.
+          # For fork PRs the array is empty (security restriction), so we
+          # fall back to searching by head SHA.
+          PR_LIST: ${{ toJson(github.event.workflow_run.pull_requests) }}
+        run: |
+          PR=$(echo "$PR_LIST" | jq -r '.[0].number // empty')
+          if [ -z "$PR" ]; then
+            PR=$(gh pr list --repo "$REPO" --state open \
+              --json number,headRefOid \
+              --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number" \
+              | head -1)
+          fi
+          echo "number=$PR" >> "$GITHUB_OUTPUT"
+
+      - name: Approve PR
+        if: ${{ steps.pr.outputs.number != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr review "$PR_NUMBER" --repo "$REPO" \
+            --approve \
+            --body "✅ **Automated checks passed** (lint · type-check · tests on Python 3.10–3.13 · docker build).
+
+          This PR is ready for final review by @arunrajiah. 🔍"
