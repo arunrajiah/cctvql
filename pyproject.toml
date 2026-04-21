@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cctvql"
-version = "1.0.2"
+version = "1.0.3"
 description = "Conversational query layer for CCTV systems — ask your cameras anything in plain English"
 readme = "README.md"
 license = { text = "MIT" }

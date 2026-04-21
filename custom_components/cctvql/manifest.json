@@ -7,5 +7,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/arunrajiah/cctvql/issues",
   "requirements": ["httpx>=0.24.0"],
-  "version": "1.0.2"
+  "version": "1.0.3"
 }
