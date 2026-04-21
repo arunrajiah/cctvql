@@ -1,0 +1,126 @@
+{
+  "common": {
+    "name": "cctvql",
+    "version": "1.0.0",
+    "title": "cctvQL",
+    "titleLang": {
+      "en": "cctvQL",
+      "de": "cctvQL"
+    },
+    "desc": {
+      "en": "Natural-language CCTV queries, live events, and PTZ control across Frigate, Hikvision, Synology, Dahua, and more.",
+      "de": "Natürlichsprachliche CCTV-Abfragen, Live-Ereignisse und PTZ-Steuerung für Frigate, Hikvision, Synology, Dahua u.v.m."
+    },
+    "authors": ["arunrajiah <arunrajiah@gmail.com>"],
+    "keywords": ["cctv", "camera", "nvr", "frigate", "hikvision", "nlp", "surveillance"],
+    "license": "MIT",
+    "platform": "Javascript/Node.js",
+    "mode": "daemon",
+    "type": "multimedia",
+    "icon": "admin/cctvql.png",
+    "enabled": true,
+    "extIcon": "https://raw.githubusercontent.com/arunrajiah/cctvql/main/integrations/ioBroker.cctvql/admin/cctvql.png",
+    "readme": "https://github.com/arunrajiah/cctvql/blob/main/integrations/ioBroker.cctvql/README.md",
+    "loglevel": "info",
+    "allowInit": true,
+    "connectionType": "local",
+    "dataSource": "push",
+    "dependencies": [{ "js-controller": ">=5.0.0" }],
+    "globalDependencies": [],
+    "adminUI": { "config": "json" }
+  },
+  "native": {
+    "host": "localhost",
+    "port": 8000,
+    "protocol": "http",
+    "apiKey": "",
+    "pollingInterval": 30
+  },
+  "objects": [],
+  "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": { "name": "Information" },
+      "native": {}
+    },
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "name": "Connection status",
+        "type": "boolean",
+        "role": "indicator.connected",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "query.send",
+      "type": "state",
+      "common": {
+        "name": "Send a natural-language query",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": true,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "query.answer",
+      "type": "state",
+      "common": {
+        "name": "Answer from cctvQL",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "query.intent",
+      "type": "state",
+      "common": {
+        "name": "Detected intent",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "events.latest",
+      "type": "state",
+      "common": {
+        "name": "Latest detection events (JSON)",
+        "type": "string",
+        "role": "json",
+        "read": true,
+        "write": false,
+        "def": "[]"
+      },
+      "native": {}
+    },
+    {
+      "_id": "events.count",
+      "type": "state",
+      "common": {
+        "name": "Number of recent events",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    }
+  ]
+}

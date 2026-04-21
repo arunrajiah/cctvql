@@ -1,0 +1,82 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  validate-template:
+    name: Validate PR description
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject empty or placeholder descriptions
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ -z "$BODY" ] || [ ${#BODY} -lt 30 ]; then
+            echo "::error::PR description is too short. Please fill in the PR template (What does this PR do? Type of change? Checklist)."
+            exit 1
+          fi
+          if echo "$BODY" | grep -q "Brief description of the change\."; then
+            echo "::error::PR description still contains the template placeholder. Please replace it with an actual description."
+            exit 1
+          fi
+
+  label:
+    name: Auto-label by type
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply label from conventional commit prefix
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          LABEL=""
+          case "$PR_TITLE" in
+            feat:*|"feat("*)    LABEL="feature"       ;;
+            fix:*|"fix("*)      LABEL="bug"           ;;
+            docs:*|"docs("*)    LABEL="documentation" ;;
+            refactor:*|"refactor("*) LABEL="refactor" ;;
+            test:*|"test("*)    LABEL="testing"       ;;
+            chore:*|"chore("*)  LABEL="chore"         ;;
+          esac
+          # Adapter PRs get a dedicated label regardless of prefix
+          if echo "$PR_TITLE" | grep -qi "adapter"; then
+            LABEL="adapter"
+          fi
+          if [ -n "$LABEL" ]; then
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$LABEL" 2>/dev/null || \
+              echo "Label '$LABEL' not found in repo — run scripts/setup-labels.sh to create it."
+          fi
+
+  size-check:
+    name: PR size warning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Warn on large PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          ADDED=$(git diff --numstat "$BASE_SHA...$HEAD_SHA" -- '*.py' \
+            | awk '{sum += $1} END {print sum+0}')
+          echo "Python lines added: $ADDED"
+          if [ "$ADDED" -gt 500 ]; then
+            gh pr comment "$PR_NUMBER" --repo "$REPO" \
+              --body "⚠️ **Large PR** — ~${ADDED} Python lines added. Consider splitting into smaller PRs for easier review." \
+              2>/dev/null || true
+          fi

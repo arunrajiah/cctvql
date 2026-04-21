@@ -1,0 +1,4 @@
+# All files require sign-off from the project maintainer.
+# Bot auto-approvals satisfy the first pass; this rule requires
+# a final human review from @arunrajiah before any PR can merge.
+* @arunrajiah
