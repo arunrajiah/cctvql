@@ -12,11 +12,12 @@
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://hub.docker.com/r/arunrajiah/cctvql)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![CodeQL](https://github.com/arunrajiah/cctvql/actions/workflows/codeql.yml/badge.svg)](https://github.com/arunrajiah/cctvql/actions/workflows/codeql.yml)
+[![Sponsor](https://img.shields.io/badge/sponsor-%E2%9D%A4-pink?logo=github)](https://github.com/sponsors/arunrajiah)
 
 cctvQL is an open-source **conversational query layer** for CCTV and surveillance systems.
 It wraps any camera system — Frigate, ONVIF, Hikvision, Dahua and more — with a natural language interface powered by local or cloud LLMs.
 
-[Quick Start](#quick-start) · [Documentation](#documentation) · [Adapters](#supported-systems) · [Contributing](#contributing)
+[Quick Start](#quick-start) · [Documentation](#documentation) · [Adapters](#supported-systems) · [Contributing](#contributing) · [Sponsor](#sponsor)
 
 </div>
 
@@ -441,6 +442,14 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 - [x] Anomaly detection — statistical spike/silence detection per camera with z-score baseline (`GET /anomalies`)
 - [x] Multi-tenant support — JWT auth, per-user camera permissions, admin user management (`CCTVQL_MULTI_TENANT=1`)
 - [ ] Mobile app (React Native)
+
+---
+
+## Sponsor
+
+cctvQL is free and open-source. If it saves you time or powers something you care about, consider sponsoring — it helps keep the project maintained and moving forward.
+
+[![Sponsor arunrajiah](https://img.shields.io/badge/sponsor-%E2%9D%A4-pink?logo=github&style=for-the-badge)](https://github.com/sponsors/arunrajiah)
 
 ---
 
