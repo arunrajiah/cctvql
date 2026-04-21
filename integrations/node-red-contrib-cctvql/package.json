@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-cctvql",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Node-RED nodes for querying and controlling CCTV systems via cctvQL — natural language queries, live events, and PTZ control across Frigate, Hikvision, Synology, and more.",
   "keywords": [
     "node-red",
