@@ -27,7 +27,14 @@
     "dataSource": "push",
     "dependencies": [{ "js-controller": ">=5.0.0" }],
     "globalDependencies": [],
-    "adminUI": { "config": "json" }
+    "adminUI": { "config": "json" },
+    "encryptedNative": ["apiKey"],
+    "news": {
+      "1.0.0": {
+        "en": "Initial release — natural-language queries, event polling, PTZ control",
+        "de": "Erstveröffentlichung — natürlichsprachliche Abfragen, Event-Polling, PTZ-Steuerung"
+      }
+    }
   },
   "native": {
     "host": "localhost",
