@@ -1,0 +1,60 @@
+{
+  "name": "n8n-nodes-cctvql",
+  "version": "1.0.0",
+  "description": "n8n community nodes for cctvQL — natural-language CCTV queries, live events, and PTZ control across Frigate, Hikvision, Synology, and more.",
+  "keywords": [
+    "n8n-community-node-package",
+    "cctv",
+    "camera",
+    "surveillance",
+    "nvr",
+    "frigate",
+    "hikvision",
+    "nlp",
+    "home-automation"
+  ],
+  "license": "MIT",
+  "author": "arunrajiah",
+  "homepage": "https://github.com/arunrajiah/cctvql/tree/main/integrations/n8n-nodes-cctvql",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arunrajiah/cctvql.git",
+    "directory": "integrations/n8n-nodes-cctvql"
+  },
+  "bugs": {
+    "url": "https://github.com/arunrajiah/cctvql/issues"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc --project tsconfig.json && npm run copy-icons",
+    "copy-icons": "find nodes -name '*.svg' | while read f; do dest=dist/$(dirname $f); mkdir -p $dest; cp $f $dest/; done",
+    "dev": "tsc --project tsconfig.json --watch",
+    "lint": "eslint nodes credentials --ext .ts",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/CctvqlApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/CctvqlQuery/CctvqlQuery.node.js",
+      "dist/nodes/CctvqlEvents/CctvqlEvents.node.js",
+      "dist/nodes/CctvqlPtz/CctvqlPtz.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^18.16.16",
+    "n8n-workflow": "*",
+    "typescript": "^5.1.3"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "engines": {
+    "node": ">=18.10"
+  }
+}
