@@ -1,0 +1,91 @@
+blueprint:
+  name: cctvQL — Motion Alert with Natural Language Summary
+  description: >
+    When a camera detects motion, query cctvQL for a plain-English summary of
+    what was seen and send it as a notification. Supports any camera that
+    cctvQL knows about (Frigate, Hikvision, Synology, etc.).
+  domain: automation
+  author: arunrajiah
+  homeassistant:
+    min_version: "2024.1.0"
+  source_url: https://github.com/arunrajiah/cctvql/blob/main/blueprints/automation/cctvql_motion_alert.yaml
+
+  input:
+    motion_sensor:
+      name: Motion / Occupancy Sensor
+      description: Binary sensor that triggers the query (e.g. a Frigate motion sensor).
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class:
+            - motion
+            - occupancy
+
+    camera_id:
+      name: Camera ID
+      description: The cctvQL camera ID to query (must match the ID in your adapter config).
+      selector:
+        text:
+      default: ""
+
+    query_template:
+      name: Query
+      description: >
+        Natural-language question sent to cctvQL. Use `{{ camera_id }}` to
+        reference the camera name. Modify to suit your use case.
+      selector:
+        text:
+      default: "What was detected at the {{ camera_id }} camera in the last 5 minutes?"
+
+    notify_target:
+      name: Notification Target
+      description: >
+        The `notify.*` service to call (e.g. `notify.mobile_app_my_phone`).
+      selector:
+        text:
+      default: notify.notify
+
+    cooldown_minutes:
+      name: Cooldown (minutes)
+      description: Minimum gap between alerts for the same camera. Prevents notification floods.
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: min
+      default: 5
+
+variables:
+  camera_id: !input camera_id
+  query_template: !input query_template
+  notify_target: !input notify_target
+
+trigger:
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "on"
+
+condition:
+  - condition: template
+    value_template: >
+      {{ (as_timestamp(now()) - as_timestamp(
+          state_attr('automation.' ~ this.attributes.id, 'last_triggered') | default(0, true)
+        )) > (input_number_cooldown_minutes | default(5) | int * 60) }}
+
+action:
+  - service: cctvql.query
+    data:
+      query: "{{ query_template | replace('{{ camera_id }}', camera_id) }}"
+      session_id: "blueprint-motion-{{ camera_id }}"
+    response_variable: cctvql_response
+
+  - service: "{{ notify_target }}"
+    data:
+      title: "Camera Alert — {{ camera_id }}"
+      message: >
+        {{ cctvql_response.answer | default('Motion detected but no details available.') }}
+      data:
+        tag: "cctvql-{{ camera_id }}"
+
+mode: single
+max_exceeded: silent

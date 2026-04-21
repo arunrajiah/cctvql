@@ -1,0 +1,63 @@
+blueprint:
+  name: cctvQL — Scheduled Camera Report
+  description: >
+    Send a scheduled plain-English summary of camera activity to a notification
+    target. Great for a nightly security digest or morning briefing.
+  domain: automation
+  author: arunrajiah
+  homeassistant:
+    min_version: "2024.1.0"
+  source_url: https://github.com/arunrajiah/cctvql/blob/main/blueprints/automation/cctvql_scheduled_report.yaml
+
+  input:
+    schedule_time:
+      name: Report Time
+      description: Time of day to send the report.
+      selector:
+        time:
+      default: "07:00:00"
+
+    query:
+      name: Query
+      description: Natural-language question to ask cctvQL.
+      selector:
+        text:
+      default: "Give me a summary of all camera activity overnight."
+
+    notify_target:
+      name: Notification Target
+      description: The `notify.*` service to call.
+      selector:
+        text:
+      default: notify.notify
+
+    report_title:
+      name: Report Title
+      description: Notification title.
+      selector:
+        text:
+      default: "Daily Camera Report"
+
+variables:
+  query: !input query
+  notify_target: !input notify_target
+  report_title: !input report_title
+
+trigger:
+  - platform: time
+    at: !input schedule_time
+
+action:
+  - service: cctvql.query
+    data:
+      query: "{{ query }}"
+      session_id: "blueprint-scheduled-report"
+    response_variable: cctvql_response
+
+  - service: "{{ notify_target }}"
+    data:
+      title: "{{ report_title }}"
+      message: >
+        {{ cctvql_response.answer | default('No activity summary available.') }}
+
+mode: single
