@@ -47,7 +47,9 @@ jobs:
         run: |
           npm pkg fix
           npm install
-          npm publish --access public
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          npm view "${PKG}@${VER}" &>/dev/null && echo "${PKG}@${VER} already published, skipping" || npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         if: env.NODE_AUTH_TOKEN != ''
@@ -57,7 +59,9 @@ jobs:
         run: |
           npm install --ignore-scripts
           npm run build
-          npm publish --access public
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          npm view "${PKG}@${VER}" &>/dev/null && echo "${PKG}@${VER} already published, skipping" || npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         if: env.NODE_AUTH_TOKEN != ''
