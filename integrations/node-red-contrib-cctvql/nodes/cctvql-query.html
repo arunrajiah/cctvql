@@ -1,0 +1,60 @@
+<script type="text/javascript">
+RED.nodes.registerType('cctvql-query', {
+    category: 'cctvQL',
+    color: '#1a2040',
+    defaults: {
+        name: { value: '' },
+        server: { value: '', type: 'cctvql-config', required: true },
+        query: { value: '' },
+        sessionId: { value: 'node-red' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'font-awesome/fa-comment',
+    paletteLabel: 'query',
+    label: function () { return this.name || this.query || 'cctvQL query'; },
+});
+</script>
+
+<script type="text/html" data-template-name="cctvql-query">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-query"><i class="fa fa-comment"></i> Query</label>
+        <input type="text" id="node-input-query" placeholder='e.g. "Any people at the front door last night?"'>
+        <div class="form-tips">Override per message with <code>msg.query</code>.</div>
+    </div>
+    <div class="form-row">
+        <label for="node-input-sessionId"><i class="fa fa-history"></i> Session</label>
+        <input type="text" id="node-input-sessionId" placeholder="node-red">
+        <div class="form-tips">Same session ID maintains multi-turn conversation context.</div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="cctvql-query">
+    <p>Ask cctvQL a natural language question about your cameras.</p>
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>msg.query <span class="property-type">string</span></dt>
+        <dd>Natural language question. Overrides the node's configured query.</dd>
+        <dt>msg.sessionId <span class="property-type">string</span></dt>
+        <dd>Conversation session ID (default: <code>node-red</code>).</dd>
+    </dl>
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>msg.payload <span class="property-type">object</span></dt>
+        <dd>Full cctvQL response (answer, intent, events, etc.).</dd>
+        <dt>msg.answer <span class="property-type">string</span></dt>
+        <dd>Plain-text answer — ready to use in a notification or debug node.</dd>
+        <dt>msg.intent <span class="property-type">string</span></dt>
+        <dd>Detected intent (e.g. <code>get_events</code>, <code>get_cameras</code>).</dd>
+    </dl>
+    <h3>Example</h3>
+    <p>Inject <code>{ "query": "Did anyone enter the garage in the last hour?" }</code> to get a plain English answer.</p>
+</script>

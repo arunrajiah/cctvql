@@ -1,0 +1,42 @@
+{
+  "name": "node-red-contrib-cctvql",
+  "version": "1.0.0",
+  "description": "Node-RED nodes for querying and controlling CCTV systems via cctvQL — natural language queries, live events, and PTZ control across Frigate, Hikvision, Synology, and more.",
+  "keywords": [
+    "node-red",
+    "cctv",
+    "camera",
+    "surveillance",
+    "nvr",
+    "frigate",
+    "hikvision",
+    "nlp",
+    "home-automation"
+  ],
+  "author": "arunrajiah",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arunrajiah/cctvql.git",
+    "directory": "integrations/node-red-contrib-cctvql"
+  },
+  "homepage": "https://github.com/arunrajiah/cctvql/tree/main/integrations/node-red-contrib-cctvql",
+  "bugs": {
+    "url": "https://github.com/arunrajiah/cctvql/issues"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "node-red": {
+    "version": ">=2.0.0",
+    "nodes": {
+      "cctvql-config": "nodes/cctvql-config.js",
+      "cctvql-query": "nodes/cctvql-query.js",
+      "cctvql-events": "nodes/cctvql-events.js",
+      "cctvql-ptz": "nodes/cctvql-ptz.js"
+    }
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
