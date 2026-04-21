@@ -1,0 +1,118 @@
+blueprint:
+  name: cctvQL — PTZ to Preset on Motion
+  description: >
+    When a motion sensor triggers, send a PTZ command via cctvQL to move a
+    camera to a preset position. Useful for pointing a camera at a detected
+    activity zone automatically.
+  domain: automation
+  author: arunrajiah
+  homeassistant:
+    min_version: "2024.1.0"
+  source_url: https://github.com/arunrajiah/cctvql/blob/main/blueprints/automation/cctvql_ptz_on_motion.yaml
+
+  input:
+    motion_sensor:
+      name: Motion Sensor
+      description: Binary sensor that triggers the PTZ command.
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class:
+            - motion
+            - occupancy
+
+    camera_id:
+      name: Camera ID
+      description: The cctvQL camera ID to control.
+      selector:
+        text:
+
+    ptz_action:
+      name: PTZ Action
+      description: The pan/tilt/zoom action to perform.
+      selector:
+        select:
+          options:
+            - label: Go to Preset
+              value: preset
+            - label: Home
+              value: home
+            - label: Left
+              value: left
+            - label: Right
+              value: right
+            - label: Up
+              value: up
+            - label: Down
+              value: down
+            - label: Zoom In
+              value: zoom_in
+            - label: Zoom Out
+              value: zoom_out
+      default: preset
+
+    preset_id:
+      name: Preset ID
+      description: Preset number to go to (only used when action is "Go to Preset").
+      selector:
+        number:
+          min: 1
+          max: 255
+      default: 1
+
+    ptz_speed:
+      name: Speed
+      description: Movement speed (1–100).
+      selector:
+        number:
+          min: 1
+          max: 100
+      default: 50
+
+    return_home_delay:
+      name: Return to Home After (seconds)
+      description: >
+        Set > 0 to automatically return the camera to the Home position after
+        this many seconds. Set to 0 to disable.
+      selector:
+        number:
+          min: 0
+          max: 300
+          unit_of_measurement: s
+      default: 30
+
+variables:
+  camera_id: !input camera_id
+  ptz_action: !input ptz_action
+  preset_id: !input preset_id
+  ptz_speed: !input ptz_speed
+  return_home_delay: !input return_home_delay
+
+trigger:
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "on"
+
+action:
+  - service: cctvql.ptz
+    data:
+      camera_id: "{{ camera_id }}"
+      action: "{{ ptz_action }}"
+      preset_id: "{{ preset_id | int }}"
+      speed: "{{ ptz_speed | int }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ return_home_delay | int > 0 }}"
+        sequence:
+          - delay:
+              seconds: "{{ return_home_delay | int }}"
+          - service: cctvql.ptz
+            data:
+              camera_id: "{{ camera_id }}"
+              action: home
+              speed: 50
+
+mode: single
+max_exceeded: silent
