@@ -1,0 +1,77 @@
+<script type="text/javascript">
+RED.nodes.registerType('cctvql-ptz', {
+    category: 'cctvQL',
+    color: '#1a2040',
+    defaults: {
+        name: { value: '' },
+        server: { value: '', type: 'cctvql-config', required: true },
+        cameraId: { value: '' },
+        action: { value: 'home' },
+        speed: { value: 50 },
+        presetId: { value: '' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'font-awesome/fa-arrows',
+    paletteLabel: 'PTZ',
+    label: function () { return this.name || `PTZ ${this.action || ''}`; },
+});
+</script>
+
+<script type="text/html" data-template-name="cctvql-ptz">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-cameraId"><i class="fa fa-video-camera"></i> Camera ID</label>
+        <input type="text" id="node-input-cameraId" placeholder="front_door">
+        <div class="form-tips">Override per message with <code>msg.cameraId</code>.</div>
+    </div>
+    <div class="form-row">
+        <label for="node-input-action"><i class="fa fa-arrows"></i> Action</label>
+        <select id="node-input-action">
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+            <option value="up">Up</option>
+            <option value="down">Down</option>
+            <option value="zoom_in">Zoom In</option>
+            <option value="zoom_out">Zoom Out</option>
+            <option value="home">Home</option>
+            <option value="preset">Preset</option>
+        </select>
+        <div class="form-tips">Override per message with <code>msg.action</code>.</div>
+    </div>
+    <div class="form-row">
+        <label for="node-input-speed"><i class="fa fa-tachometer"></i> Speed</label>
+        <input type="number" id="node-input-speed" min="1" max="100" placeholder="50">
+    </div>
+    <div class="form-row">
+        <label for="node-input-presetId"><i class="fa fa-bookmark"></i> Preset ID</label>
+        <input type="number" id="node-input-presetId" placeholder="required when action is preset">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="cctvql-ptz">
+    <p>Send a pan/tilt/zoom command to a camera via cctvQL.</p>
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>msg.cameraId <span class="property-type">string</span></dt>
+        <dd>Camera ID to control. Overrides the configured value.</dd>
+        <dt>msg.action <span class="property-type">string</span></dt>
+        <dd>PTZ action: <code>left</code>, <code>right</code>, <code>up</code>, <code>down</code>, <code>zoom_in</code>, <code>zoom_out</code>, <code>home</code>, <code>preset</code>.</dd>
+        <dt>msg.speed <span class="property-type">number</span></dt>
+        <dd>Speed 1–100 (default 50).</dd>
+        <dt>msg.presetId <span class="property-type">number</span></dt>
+        <dd>Preset number — required when action is <code>preset</code>.</dd>
+    </dl>
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>msg.payload <span class="property-type">object</span></dt>
+        <dd>cctvQL API response confirming the PTZ command.</dd>
+    </dl>
+</script>
