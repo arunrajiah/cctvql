@@ -447,7 +447,20 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 
 ## Sponsor
 
-cctvQL is free and open-source. If it saves you time or powers something you care about, consider sponsoring — it helps keep the project maintained and moving forward.
+cctvQL is free, open-source, and solo-maintained. If you run Frigate, ONVIF, Hikvision, Dahua, Synology, Milestone, or Scrypted in production — at home, in a small business, or in a conservation program — sponsorship is what keeps it free and moving.
+
+**Sponsorship currently funds:**
+
+- Reolink, UniFi Protect, and Amcrest adapter coverage
+- A hosted demo so prospective users can try cctvQL before installing
+- Faster turnaround on issues from production users
+- Face recognition (next major roadmap item)
+
+**Suggested tiers:**
+
+- **$5/month** — keeps the project alive; shoutout in next release notes
+- **$25/month** — direct line on issues + early access to new adapters
+- **$100/month (org)** — your team's logo on the README + roadmap input
 
 [![Sponsor arunrajiah](https://img.shields.io/badge/sponsor-%E2%9D%A4-pink?logo=github&style=for-the-badge)](https://github.com/sponsors/arunrajiah)
 
