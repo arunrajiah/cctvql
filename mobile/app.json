@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "cctvQL",
+    "slug": "cctvql",
+    "version": "0.5.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.arunrajiah.cctvql",
+      "infoPlist": {
+        "NSCameraUsageDescription": "cctvQL uses the camera to enrol faces for recognition.",
+        "NSMicrophoneUsageDescription": "cctvQL uses the microphone for voice queries.",
+        "NSPhotoLibraryUsageDescription": "cctvQL accesses photos for face enrolment."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f172a"
+      },
+      "package": "com.arunrajiah.cctvql",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        { "cameraPermission": "cctvQL uses the camera to enrol faces for recognition." }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0f172a",
+          "sounds": []
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
+    }
+  }
+}

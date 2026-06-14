@@ -50,6 +50,10 @@ No dashboards. No complex queries. Just ask.
 - **Vendor-agnostic** — adapter pattern supports any CCTV system; ships with Frigate, ONVIF, Hikvision, Dahua
 - **Pluggable LLM backends** — Ollama (local/private), OpenAI, Anthropic, or any OpenAI-compatible API
 - **REST API** — integrate with Home Assistant, Grafana, custom dashboards, or mobile apps
+- **React Native mobile app** — iOS + Android client with live feed, events, chat, PTZ, and push alerts
+- **Face recognition** — enroll known individuals and identify them across event snapshots (`pip install cctvql[face]`)
+- **AI event summaries** — `GET /events/{id}/summary` combines VisionAnalyzer + face recognition into one structured response
+- **Mobile push notifications** — FCM integration; alerts land on registered iOS/Android devices (`pip install cctvql[push]`)
 - **PTZ control** — pan, tilt, zoom and preset recall via REST API for supported cameras
 - **Event export** — download event history as CSV or JSON from `/events/export`
 - **Alert rules** — create rules to notify when specific labels appear on specific cameras in time windows
@@ -438,10 +442,15 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 - [x] Home Assistant custom integration — sensors, binary sensors, services, HACS-ready
 - [x] ONVIF discovery — auto-detect cameras on the local network (`cctvql discover` CLI + `GET /discover/onvif`)
 - [x] Event timeline UI — visual heatmap timeline at `/timeline` with camera rows, time buckets, tooltips, auto-refresh
-- [ ] Face recognition — identify known individuals across camera feeds
+- [x] Face recognition — enroll known individuals; auto-matched across event snapshots (`/faces/*`, `pip install cctvql[face]`)
+- [x] AI event summaries — `GET /events/{id}/summary` with LLM description + face matches in one call
+- [x] Mobile push notifications — FCM alerts to iOS/Android devices (`/push/*`, `pip install cctvql[push]`)
 - [x] Anomaly detection — statistical spike/silence detection per camera with z-score baseline (`GET /anomalies`)
 - [x] Multi-tenant support — JWT auth, per-user camera permissions, admin user management (`CCTVQL_MULTI_TENANT=1`)
-- [ ] Mobile app (React Native)
+- [x] Mobile app — React Native (Expo) iOS + Android client with live events, NLP chat, PTZ joystick, face enrolment
+- [ ] Face recognition NLP integration — "Was Alice home last night?" wired through the query router
+- [ ] App Store / Play Store submission (EAS build pipeline)
+- [ ] Deepface / InsightFace backend option (GPU path, multi-angle enrolment)
 
 ---
 

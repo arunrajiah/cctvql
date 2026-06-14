@@ -8,6 +8,8 @@ Tables:
   messages(id, session_id, role, content, ts)
   events_log(id, adapter_name, camera_name, label, zone, score, snapshot_url, clip_url, ts)
   fired_alerts(id, rule_id, event_id, ts)
+  face_enrollments(face_id, name, label, image_b64, embedding, created_at)
+  push_tokens(token, platform, device_name, user_id, created_at)
 """
 
 from __future__ import annotations
@@ -87,6 +89,23 @@ class Database:
                 rule_id TEXT NOT NULL,
                 event_id TEXT NOT NULL,
                 ts TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS face_enrollments (
+                face_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                label TEXT NOT NULL DEFAULT '',
+                image_b64 TEXT NOT NULL,
+                embedding TEXT,
+                created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS push_tokens (
+                token TEXT PRIMARY KEY,
+                platform TEXT NOT NULL,
+                device_name TEXT NOT NULL DEFAULT '',
+                user_id TEXT,
+                created_at TEXT NOT NULL
             );
             """
         )
@@ -229,3 +248,111 @@ class Database:
         writer.writeheader()
         writer.writerows(events)
         return buf.getvalue()
+
+    # ------------------------------------------------------------------
+    # Face enrollments
+    # ------------------------------------------------------------------
+
+    async def save_face_enrollment(
+        self,
+        face_id: str,
+        name: str,
+        label: str,
+        image_b64: str,
+        embedding: str | None,
+        created_at: str,
+    ) -> None:
+        assert self._conn is not None
+        await self._conn.execute(
+            """
+            INSERT INTO face_enrollments (face_id, name, label, image_b64, embedding, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(face_id) DO UPDATE SET
+                name = excluded.name,
+                label = excluded.label,
+                image_b64 = excluded.image_b64,
+                embedding = excluded.embedding
+            """,
+            (face_id, name, label, image_b64, embedding, created_at),
+        )
+        await self._conn.commit()
+
+    async def list_face_enrollments(self) -> list[dict]:
+        assert self._conn is not None
+        async with self._conn.execute(
+            "SELECT face_id, name, label, image_b64, embedding, created_at "
+            "FROM face_enrollments ORDER BY created_at DESC"
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+    async def get_face_enrollment(self, face_id: str) -> dict | None:
+        assert self._conn is not None
+        async with self._conn.execute(
+            "SELECT face_id, name, label, image_b64, embedding, created_at "
+            "FROM face_enrollments WHERE face_id = ?",
+            (face_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return dict(row) if row else None
+
+    async def delete_face_enrollment(self, face_id: str) -> bool:
+        assert self._conn is not None
+        async with self._conn.execute(
+            "DELETE FROM face_enrollments WHERE face_id = ?", (face_id,)
+        ) as cursor:
+            deleted = cursor.rowcount > 0
+        await self._conn.commit()
+        return deleted
+
+    # ------------------------------------------------------------------
+    # Push tokens
+    # ------------------------------------------------------------------
+
+    async def save_push_token(
+        self,
+        token: str,
+        platform: str,
+        device_name: str = "",
+        user_id: str | None = None,
+    ) -> None:
+        assert self._conn is not None
+        now = datetime.utcnow().isoformat()
+        await self._conn.execute(
+            """
+            INSERT INTO push_tokens (token, platform, device_name, user_id, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(token) DO UPDATE SET
+                platform = excluded.platform,
+                device_name = excluded.device_name,
+                user_id = excluded.user_id
+            """,
+            (token, platform, device_name, user_id, now),
+        )
+        await self._conn.commit()
+
+    async def list_push_tokens(self, user_id: str | None = None) -> list[dict]:
+        assert self._conn is not None
+        if user_id is not None:
+            async with self._conn.execute(
+                "SELECT token, platform, device_name, user_id, created_at "
+                "FROM push_tokens WHERE user_id = ? ORDER BY created_at DESC",
+                (user_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+        else:
+            async with self._conn.execute(
+                "SELECT token, platform, device_name, user_id, created_at "
+                "FROM push_tokens ORDER BY created_at DESC"
+            ) as cursor:
+                rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+    async def delete_push_token(self, token: str) -> bool:
+        assert self._conn is not None
+        async with self._conn.execute(
+            "DELETE FROM push_tokens WHERE token = ?", (token,)
+        ) as cursor:
+            deleted = cursor.rowcount > 0
+        await self._conn.commit()
+        return deleted

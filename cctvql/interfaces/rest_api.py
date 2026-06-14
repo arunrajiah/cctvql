@@ -10,7 +10,17 @@ Endpoints:
   GET  /events                 — Get events (with filters)
   GET  /events/export          — Export events as CSV
   GET  /events/timeline        — Events grouped by camera and time bucket
+  GET  /events/{id}/summary    — AI-powered natural-language event summary
   GET  /anomalies              — Detect statistically unusual activity
+  GET  /faces                  — List enrolled faces
+  POST /faces/enroll           — Enroll a new face (admin-only)
+  GET  /faces/{face_id}        — Get a face enrollment
+  DELETE /faces/{face_id}      — Delete a face enrollment (admin-only)
+  POST /faces/recognize        — Recognize faces in an uploaded image
+  GET  /faces/search/{event_id} — Recognize faces in an event snapshot
+  POST /push/register          — Register a mobile push token
+  DELETE /push/register/{token} — Unregister a push token
+  GET  /push/tokens            — List registered push tokens
   GET  /health                 — System health check
   GET  /health/cameras         — Per-camera health status
   GET  /metrics                — Prometheus-compatible metrics
@@ -58,6 +68,7 @@ from cctvql.adapters.base import AdapterRegistry
 from cctvql.core.alerts import AlertEngine, make_rule_from_context
 from cctvql.core.auth import ROLE_ADMIN, AuthManager, User
 from cctvql.core.database import Database
+from cctvql.core.face_registry import FaceRegistry
 from cctvql.core.health_monitor import HealthMonitor
 from cctvql.core.multi_query import MultiSystemRouter
 from cctvql.core.nlp_engine import NLPEngine
@@ -65,6 +76,7 @@ from cctvql.core.query_router import QueryRouter
 from cctvql.core.schema import Event
 from cctvql.core.session_store import SessionStore
 from cctvql.core.user_store import UserStore
+from cctvql.core.vision import VisionAnalyzer
 from cctvql.llm.base import LLMRegistry
 from cctvql.notifications.registry import NotifierRegistry
 
@@ -132,11 +144,12 @@ _alert_engine: AlertEngine | None = None
 _health_monitor: HealthMonitor | None = None
 _auth_manager: AuthManager | None = None
 _user_store: UserStore | None = None
+_face_registry: FaceRegistry | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _db, _session_store, _alert_engine, _health_monitor, _auth_manager, _user_store
+    global _db, _session_store, _alert_engine, _health_monitor, _auth_manager, _user_store, _face_registry
 
     # ── 1. Adapter connection ────────────────────────────────────────────────
     try:
@@ -159,7 +172,12 @@ async def lifespan(app: FastAPI):
         _db = None
         _session_store = None
 
-    # ── 3. Multi-tenant user store (opt-in) ──────────────────────────────────
+    # ── 3. Face registry ─────────────────────────────────────────────────────
+    if _db is not None:
+        _face_registry = FaceRegistry(_db)
+        await _face_registry.load_cache()
+
+    # ── 4. Multi-tenant user store (opt-in) ──────────────────────────────────
     if _MULTI_TENANT:
         if _db is None:
             logger.error("Multi-tenant mode requires a database. Set CCTVQL_DB_PATH.")
@@ -169,11 +187,11 @@ async def lifespan(app: FastAPI):
             await _user_store.setup()
             logger.info("Multi-tenant mode enabled")
 
-    # ── 4. Alert engine ──────────────────────────────────────────────────────
+    # ── 5. Alert engine ──────────────────────────────────────────────────────
     _alert_engine = AlertEngine(AdapterRegistry)
     await _alert_engine.start()
 
-    # ── 4. Health monitor ────────────────────────────────────────────────────
+    # ── 6. Health monitor ────────────────────────────────────────────────────
     poll_interval = int(os.environ.get("CCTVQL_HEALTH_POLL_INTERVAL", "60"))
     _health_monitor = HealthMonitor(
         adapter_registry=AdapterRegistry,
@@ -286,6 +304,53 @@ class PTZRequest(BaseModel):
     action: str  # left | right | up | down | zoom_in | zoom_out | stop
     speed: int = 50  # 1–100
     preset_id: int | None = None  # for preset moves
+
+
+class FaceEnrollResponse(BaseModel):
+    face_id: str
+    name: str
+    label: str
+    created_at: str
+    image_b64: str
+
+
+class FaceMatchResponse(BaseModel):
+    face_id: str
+    name: str
+    label: str
+    confidence: float
+
+
+class RecognizeResponse(BaseModel):
+    matches: list[FaceMatchResponse]
+    face_count: int
+    recognition_available: bool
+
+
+class PushRegisterRequest(BaseModel):
+    token: str
+    platform: str  # "ios" | "android"
+    device_name: str = ""
+
+
+class PushTokenResponse(BaseModel):
+    token: str
+    platform: str
+    device_name: str
+    user_id: str | None
+    created_at: str
+
+
+class EventSummaryResponse(BaseModel):
+    event_id: str
+    camera_name: str
+    timestamp: str
+    summary: str
+    objects: list[dict]
+    zones: list[str]
+    snapshot_url: str | None
+    clip_url: str | None
+    faces: list[FaceMatchResponse]
 
 
 class LoginRequest(BaseModel):
@@ -1210,6 +1275,313 @@ async def get_anomalies(
         "low": sum(1 for a in anomalies if a.severity == "low"),
         "anomalies": [a.to_dict() for a in anomalies],
     }
+
+
+@app.get("/events/{event_id}/summary", response_model=EventSummaryResponse)
+async def get_event_summary(
+    event_id: str,
+    request: Request,
+    include_faces: bool = Query(default=True, description="Run face recognition on the snapshot"),
+) -> EventSummaryResponse:
+    """
+    Generate an AI-powered natural-language summary for a single event.
+
+    Fetches the event from the adapter, sends the snapshot to the configured
+    LLM for visual analysis, and optionally runs face recognition on the image.
+
+    **Example:**
+    ```
+    GET /events/1234abcd/summary
+    GET /events/1234abcd/summary?include_faces=false
+    ```
+    """
+    user = await _get_current_user(request)
+
+    adapter = AdapterRegistry.get_active()
+    event = await adapter.get_event(event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail=f"Event '{event_id}' not found.")
+
+    # Multi-tenant camera-group scoping
+    if user is not None and not user.can_see_camera(event.camera_name):
+        raise HTTPException(status_code=403, detail="Access denied to this camera.")
+
+    # AI visual summary
+    llm = LLMRegistry.get_active()
+    analyzer = VisionAnalyzer(llm)
+    summary_text = await analyzer.analyze_event(event, adapter)
+
+    # Optional face recognition
+    face_matches: list[FaceMatchResponse] = []
+    if include_faces and _face_registry is not None:
+        snapshot_url = event.snapshot_url or event.thumbnail_url
+        if snapshot_url:
+            result = await _face_registry.recognise_url(snapshot_url)
+            face_matches = [
+                FaceMatchResponse(
+                    face_id=m.face_id,
+                    name=m.name,
+                    label=m.label,
+                    confidence=m.confidence,
+                )
+                for m in result.matches
+            ]
+
+    return EventSummaryResponse(
+        event_id=event.id,
+        camera_name=event.camera_name,
+        timestamp=event.start_time.isoformat(),
+        summary=summary_text,
+        objects=[
+            {"label": o.label, "confidence": round(o.confidence, 3)}
+            for o in event.objects
+        ],
+        zones=event.zones,
+        snapshot_url=event.snapshot_url,
+        clip_url=event.clip_url,
+        faces=face_matches,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Face enrollment + recognition
+# ---------------------------------------------------------------------------
+
+
+@app.get("/faces", response_model=list[FaceEnrollResponse])
+async def list_faces(request: Request) -> list[FaceEnrollResponse]:
+    """List all enrolled faces."""
+    if _face_registry is None:
+        raise HTTPException(status_code=503, detail="Face registry not available (no database).")
+    enrollments = await _face_registry.list_enrollments()
+    return [
+        FaceEnrollResponse(
+            face_id=e.face_id,
+            name=e.name,
+            label=e.label,
+            created_at=e.created_at,
+            image_b64=e.image_b64,
+        )
+        for e in enrollments
+    ]
+
+
+@app.post("/faces/enroll", response_model=FaceEnrollResponse, status_code=201)
+async def enroll_face(
+    request: Request,
+    name: str = Form(..., description="Person's name"),
+    label: str = Form(default="", description="Optional role / label"),
+    image: UploadFile = File(..., description="Photo containing exactly one face"),
+) -> FaceEnrollResponse:
+    """
+    Enroll a new face.  Admin-only in multi-tenant mode.
+
+    The uploaded image must contain exactly one clearly-visible face.
+    When the ``face_recognition`` library is installed the 128-d embedding
+    is computed and stored; otherwise only the image is stored.
+    """
+    user = await _get_current_user(request)
+    if _MULTI_TENANT:
+        _require_admin(user)
+
+    if _face_registry is None:
+        raise HTTPException(status_code=503, detail="Face registry not available (no database).")
+
+    image_bytes = await image.read()
+    content_type = image.content_type or "image/jpeg"
+
+    try:
+        enrollment = await _face_registry.enroll(
+            name=name,
+            image_bytes=image_bytes,
+            label=label,
+            content_type=content_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return FaceEnrollResponse(
+        face_id=enrollment.face_id,
+        name=enrollment.name,
+        label=enrollment.label,
+        created_at=enrollment.created_at,
+        image_b64=enrollment.image_b64,
+    )
+
+
+@app.get("/faces/{face_id}", response_model=FaceEnrollResponse)
+async def get_face(face_id: str) -> FaceEnrollResponse:
+    """Get a single face enrollment by ID."""
+    if _face_registry is None:
+        raise HTTPException(status_code=503, detail="Face registry not available (no database).")
+    enrollment = await _face_registry.get_enrollment(face_id)
+    if enrollment is None:
+        raise HTTPException(status_code=404, detail=f"Face '{face_id}' not found.")
+    return FaceEnrollResponse(
+        face_id=enrollment.face_id,
+        name=enrollment.name,
+        label=enrollment.label,
+        created_at=enrollment.created_at,
+        image_b64=enrollment.image_b64,
+    )
+
+
+@app.delete("/faces/{face_id}", status_code=204)
+async def delete_face(face_id: str, request: Request) -> None:
+    """Delete a face enrollment.  Admin-only in multi-tenant mode."""
+    user = await _get_current_user(request)
+    if _MULTI_TENANT:
+        _require_admin(user)
+
+    if _face_registry is None:
+        raise HTTPException(status_code=503, detail="Face registry not available (no database).")
+    deleted = await _face_registry.delete_enrollment(face_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Face '{face_id}' not found.")
+
+
+@app.post("/faces/recognize", response_model=RecognizeResponse)
+async def recognize_faces(
+    image: UploadFile = File(..., description="Image to search for enrolled faces"),
+) -> RecognizeResponse:
+    """
+    Find enrolled faces in an uploaded image.
+
+    Returns matches sorted by confidence (highest first).
+    Requires ``pip install cctvql[face]`` for recognition to return results.
+    """
+    if _face_registry is None:
+        raise HTTPException(status_code=503, detail="Face registry not available (no database).")
+    image_bytes = await image.read()
+    result = await _face_registry.recognise_image(image_bytes)
+    return RecognizeResponse(
+        matches=[
+            FaceMatchResponse(
+                face_id=m.face_id,
+                name=m.name,
+                label=m.label,
+                confidence=m.confidence,
+            )
+            for m in result.matches
+        ],
+        face_count=result.face_count,
+        recognition_available=result.recognition_available,
+    )
+
+
+@app.get("/faces/search/{event_id}", response_model=RecognizeResponse)
+async def search_faces_in_event(event_id: str, request: Request) -> RecognizeResponse:
+    """
+    Run face recognition on the snapshot of a specific event.
+
+    Fetches the event's snapshot URL and searches it for enrolled faces.
+    """
+    user = await _get_current_user(request)
+
+    if _face_registry is None:
+        raise HTTPException(status_code=503, detail="Face registry not available (no database).")
+
+    adapter = AdapterRegistry.get_active()
+    event = await adapter.get_event(event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail=f"Event '{event_id}' not found.")
+
+    if user is not None and not user.can_see_camera(event.camera_name):
+        raise HTTPException(status_code=403, detail="Access denied to this camera.")
+
+    snapshot_url = event.snapshot_url or event.thumbnail_url
+    if not snapshot_url:
+        return RecognizeResponse(
+            matches=[],
+            face_count=0,
+            recognition_available=True,
+        )
+
+    result = await _face_registry.recognise_url(snapshot_url)
+    return RecognizeResponse(
+        matches=[
+            FaceMatchResponse(
+                face_id=m.face_id,
+                name=m.name,
+                label=m.label,
+                confidence=m.confidence,
+            )
+            for m in result.matches
+        ],
+        face_count=result.face_count,
+        recognition_available=result.recognition_available,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Push notification token management
+# ---------------------------------------------------------------------------
+
+
+@app.post("/push/register", response_model=PushTokenResponse, status_code=201)
+async def register_push_token(
+    body: PushRegisterRequest,
+    request: Request,
+) -> PushTokenResponse:
+    """Register a mobile device push token (idempotent — upserts on conflict)."""
+    if _db is None:
+        raise HTTPException(status_code=503, detail="Database not available.")
+
+    user = await _get_current_user(request)
+    user_id = user.id if user else None
+
+    await _db.save_push_token(
+        token=body.token,
+        platform=body.platform,
+        device_name=body.device_name,
+        user_id=user_id,
+    )
+
+    from datetime import timezone
+
+    return PushTokenResponse(
+        token=body.token,
+        platform=body.platform,
+        device_name=body.device_name,
+        user_id=user_id,
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@app.delete("/push/register/{token}", status_code=204)
+async def unregister_push_token(token: str) -> None:
+    """Remove a registered push token."""
+    if _db is None:
+        raise HTTPException(status_code=503, detail="Database not available.")
+    await _db.delete_push_token(token)
+
+
+@app.get("/push/tokens", response_model=list[PushTokenResponse])
+async def list_push_tokens(request: Request) -> list[PushTokenResponse]:
+    """
+    List registered push tokens.
+
+    Admins see all tokens; non-admin users see only their own tokens.
+    """
+    if _db is None:
+        raise HTTPException(status_code=503, detail="Database not available.")
+
+    user = await _get_current_user(request)
+    if _MULTI_TENANT and user is not None and user.role != ROLE_ADMIN:
+        rows = await _db.list_push_tokens(user_id=user.id)
+    else:
+        rows = await _db.list_push_tokens()
+
+    return [
+        PushTokenResponse(
+            token=row["token"],
+            platform=row["platform"],
+            device_name=row["device_name"],
+            user_id=row.get("user_id"),
+            created_at=row["created_at"],
+        )
+        for row in rows
+    ]
 
 
 @app.get("/discover/onvif")

@@ -10,13 +10,48 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Planned
-- Vision-based event description (multimodal LLM support)
-- Home Assistant custom integration
-- Hikvision adapter
-- Dahua adapter
-- Web UI (lightweight chat interface)
-- Multi-system queries
-- Voice interface (Whisper STT)
+- Face recognition NLP integration — "Was Alice home last night?" wired through the query router
+- App Store / Play Store submission (EAS build pipeline)
+- Deepface / InsightFace backend option (GPU path, multi-angle enrolment)
+
+---
+
+## [0.7.0] — 2026-06-14
+
+### Added
+- **AI event summary endpoint** (`GET /events/{id}/summary`)
+  - Combines VisionAnalyzer LLM visual description with face recognition in one structured response
+  - Returns `summary` text, `objects`, `zones`, `faces`, `snapshot_url`, `clip_url`
+  - Optional `?include_faces=false` to skip recognition when speed matters
+  - Respects multi-tenant camera-group scoping
+- **Face enrollment + recognition** (`/faces/*`)
+  - `GET /faces` — list all enrolled faces
+  - `POST /faces/enroll` — enroll from a photo upload; admin-only in multi-tenant mode
+  - `GET /faces/{face_id}` — fetch a single enrollment
+  - `DELETE /faces/{face_id}` — remove enrollment (admin-only)
+  - `POST /faces/recognize` — run recognition on an uploaded image
+  - `GET /faces/search/{event_id}` — run recognition on an event's snapshot URL
+  - `FaceRegistry` backed by SQLite with in-memory embedding cache
+  - Graceful degradation when `face_recognition` library is not installed
+- **Mobile push notification management** (`/push/*`)
+  - `POST /push/register` — register iOS/Android FCM device token (idempotent upsert)
+  - `DELETE /push/register/{token}` — unregister
+  - `GET /push/tokens` — list tokens (admins see all; users see own)
+  - `PushNotifier` fans out FCM HTTP v1 alerts and auto-removes stale tokens on 400/404
+- **React Native mobile app** (`mobile/`) — Expo SDK 51, TypeScript, iOS + Android
+  - `LoginScreen` — connects to any cctvQL server with API key or JWT credentials
+  - `HomeScreen` — adapter/LLM health, cameras online/offline, recent 5 events
+  - `EventsScreen` — filterable event feed with camera and label chips, pull-to-refresh
+  - `EventDetailScreen` — snapshot viewer, detected objects with confidence bars, face recognition results
+  - `ChatScreen` — multi-turn NLP chat with session management
+  - `CameraListScreen` + `CameraDetailScreen` — live status, PTZ D-pad joystick, preset recall
+  - `FaceListScreen` + `FaceEnrollScreen` — grid of enrolled faces, camera/library enrolment
+  - `SettingsScreen` — server URL, API key, disconnect
+  - Push notification registration via `usePushNotifications` hook + `POST /push/register`
+  - Zustand auth store with Expo SecureStore persistence
+  - TanStack Query v5 for data fetching + pull-to-refresh
+- New SQLite tables: `face_enrollments`, `push_tokens` (auto-created on `Database.connect()`)
+- `[face]` and `[push]` optional dependency groups in `pyproject.toml`
 
 ---
 
