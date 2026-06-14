@@ -44,6 +44,11 @@ You have access to these intents:
 - ptz_move              → Pan/tilt/zoom a camera (needs: camera_name,
                           action: left|right|up|down|zoom_in|zoom_out|stop, speed: 1-100)
 - ptz_preset            → Go to a PTZ preset position (needs: camera_name, preset_id)
+- search_faces          → Find events where a specific named individual appears via face
+                          recognition (needs: person_name; optional: camera_name,
+                          start/end_time). Use for queries like "Was Alice home last night?",
+                          "Did Bob visit today?", "When was Sarah last seen?",
+                          "Show me events with John".
 - unknown               → Query cannot be mapped to any intent
 
 Always respond with ONLY valid JSON in this format:
@@ -56,6 +61,7 @@ Always respond with ONLY valid JSON in this format:
   "start_time": "<ISO 8601 datetime or null>",
   "end_time": "<ISO 8601 datetime or null>",
   "limit": <integer, default 20>,
+  "person_name": "<individual's name when intent is search_faces, else null>",
   "explanation": "<one sentence explaining what you understood>"
 }}
 
@@ -192,6 +198,7 @@ class NLPEngine:
                 "action": data.get("action"),
                 "speed": data.get("speed", 50),
                 "preset_id": data.get("preset_id"),
+                "person_name": data.get("person_name"),
             },
         )
 

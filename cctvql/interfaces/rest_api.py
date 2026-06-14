@@ -691,6 +691,7 @@ async def query(req: QueryRequest) -> QueryResponse:
                 AdapterRegistry.get_active(),
                 llm,
                 alert_engine=_alert_engine,
+                face_registry=_face_registry,
             )
             answer = await router.route(ctx)
 
@@ -1068,7 +1069,10 @@ async def voice_query(
     sid = session_id or "default"
     nlp = _get_nlp_for_session(sid)
     router = QueryRouter(
-        AdapterRegistry.get_active(), LLMRegistry.get_active(), alert_engine=_alert_engine
+        AdapterRegistry.get_active(),
+        LLMRegistry.get_active(),
+        alert_engine=_alert_engine,
+        face_registry=_face_registry,
     )
     ctx = await nlp.parse(text, session_id=sid)
     answer = await router.route(ctx)

@@ -448,7 +448,7 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 - [x] Anomaly detection — statistical spike/silence detection per camera with z-score baseline (`GET /anomalies`)
 - [x] Multi-tenant support — JWT auth, per-user camera permissions, admin user management (`CCTVQL_MULTI_TENANT=1`)
 - [x] Mobile app — React Native (Expo) iOS + Android client with live events, NLP chat, PTZ joystick, face enrolment
-- [ ] Face recognition NLP integration — "Was Alice home last night?" wired through the query router
+- [x] Face recognition NLP integration — "Was Alice home last night?" routes to `search_faces` intent, scans event snapshots for the named person
 - [ ] App Store / Play Store submission (EAS build pipeline)
 - [ ] Deepface / InsightFace backend option (GPU path, multi-angle enrolment)
 

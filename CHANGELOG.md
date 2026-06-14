@@ -10,9 +10,24 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Planned
-- Face recognition NLP integration — "Was Alice home last night?" wired through the query router
 - App Store / Play Store submission (EAS build pipeline)
 - Deepface / InsightFace backend option (GPU path, multi-angle enrolment)
+
+---
+
+## [0.8.0] — 2026-06-14
+
+### Added
+- **Face recognition NLP integration** — natural language queries now route face searches
+  - New `search_faces` intent in the NLP engine system prompt
+  - Example queries: "Was Alice home last night?", "Did Bob visit today?",
+    "When was Sarah last seen on the front door camera?"
+  - The query router fetches events for the time window, runs `FaceRegistry.recognise_url()`
+    on each snapshot, and returns a timeline of matches with camera, timestamp, and confidence
+  - `person_name` field added to the NLP JSON schema so names are reliably extracted
+  - `FaceRegistry` is now passed to `QueryRouter` from both `/query` and `/voice/query`
+  - Graceful degradation: clear error messages when `face_recognition` library is absent or no
+    face registry is configured
 
 ---
 

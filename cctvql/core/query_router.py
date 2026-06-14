@@ -20,6 +20,7 @@ from cctvql.llm.base import BaseLLM, LLMMessage
 
 if TYPE_CHECKING:
     from cctvql.core.alerts import AlertEngine
+    from cctvql.core.face_registry import FaceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +50,12 @@ class QueryRouter:
         adapter: BaseAdapter,
         llm: BaseLLM,
         alert_engine: AlertEngine | None = None,
+        face_registry: FaceRegistry | None = None,
     ) -> None:
         self.adapter = adapter
         self.llm = llm
         self.alert_engine = alert_engine
+        self._face_registry = face_registry
         self._vision = VisionAnalyzer(llm)
         self._intent_map = {
             "list_cameras": self._handle_list_cameras,
@@ -69,6 +72,7 @@ class QueryRouter:
             "detect_anomalies": self._handle_detect_anomalies,
             "ptz_move": self._handle_ptz_move,
             "ptz_preset": self._handle_ptz_preset,
+            "search_faces": self._handle_search_faces,
         }
 
     async def route(self, ctx: QueryContext) -> str:
@@ -533,6 +537,121 @@ class QueryRouter:
             success=True,
             intent="ptz_preset",
             summary=f"Camera **{camera_name}** moved to preset {preset_id}.",
+        )
+
+    async def _handle_search_faces(self, ctx: QueryContext) -> QueryResult:
+        """Search events for appearances of a named enrolled person."""
+        person_name: str | None = ctx.extra.get("person_name")
+        if not person_name:
+            return QueryResult(
+                success=False,
+                intent="search_faces",
+                error=(
+                    "Please tell me whose name to look for, e.g. "
+                    "\"Was Alice home last night?\" or \"Show me events with Bob\"."
+                ),
+            )
+
+        if self._face_registry is None:
+            return QueryResult(
+                success=False,
+                intent="search_faces",
+                error=(
+                    "Face recognition is not available — the face registry requires a "
+                    "database connection. Start the server with CCTVQL_DB_PATH set and "
+                    "enroll faces via POST /faces/enroll."
+                ),
+            )
+
+        # Fetch events in the requested time window
+        events = await self.adapter.get_events(
+            camera_name=ctx.camera_name,
+            label=ctx.label,
+            zone=ctx.zone,
+            start_time=ctx.start_time,
+            end_time=ctx.end_time,
+            limit=min(ctx.limit, 50),  # cap to avoid slow scans on huge ranges
+        )
+
+        if not events:
+            return QueryResult(
+                success=True,
+                intent="search_faces",
+                summary=(
+                    f"No events found in the requested time range"
+                    + (f" on {ctx.camera_name}" if ctx.camera_name else "")
+                    + " to search through."
+                ),
+            )
+
+        # Run recognition on each event that has a snapshot
+        hits: list[tuple] = []  # (event, confidence)
+        recognition_ran = False
+
+        for event in events:
+            snapshot_url = event.snapshot_url or event.thumbnail_url
+            if not snapshot_url:
+                continue
+            recognition_ran = True
+            try:
+                result = await self._face_registry.recognise_url(snapshot_url)
+                if not result.recognition_available:
+                    return QueryResult(
+                        success=False,
+                        intent="search_faces",
+                        error=(
+                            "Face recognition library is not installed. "
+                            "Run: pip install cctvql[face]"
+                        ),
+                    )
+                matched = [
+                    m for m in result.matches
+                    if person_name.lower() in m.name.lower()
+                ]
+                if matched:
+                    best = max(matched, key=lambda m: m.confidence)
+                    hits.append((event, best.confidence))
+            except Exception as exc:
+                logger.warning("Face recognition failed for event %s: %s", event.id, exc)
+
+        if not recognition_ran:
+            return QueryResult(
+                success=True,
+                intent="search_faces",
+                summary=(
+                    f"None of the {len(events)} events in that time range had a snapshot "
+                    "available for face recognition."
+                ),
+            )
+
+        if not hits:
+            cam_qualifier = f" on **{ctx.camera_name}**" if ctx.camera_name else ""
+            return QueryResult(
+                success=True,
+                intent="search_faces",
+                summary=(
+                    f"**{person_name}** was not seen in any of the "
+                    f"{len(events)} events scanned{cam_qualifier}."
+                ),
+            )
+
+        hits.sort(key=lambda h: h[0].start_time, reverse=True)
+        lines = [f"**{person_name}** appeared in **{len(hits)}** event(s):"]
+        for event, conf in hits[:10]:
+            time_str = event.start_time.strftime("%Y-%m-%d %H:%M")
+            lines.append(
+                f"• {time_str} — **{event.camera_name}** "
+                f"({conf:.0%} confidence)"
+                + (f" [snapshot]({event.snapshot_url})" if event.snapshot_url else "")
+            )
+        if len(hits) > 10:
+            lines.append(f"  … and {len(hits) - 10} more.")
+
+        return QueryResult(
+            success=True,
+            intent="search_faces",
+            data=[(e.id, c) for e, c in hits],
+            summary="\n".join(lines),
         )
 
     # ------------------------------------------------------------------
