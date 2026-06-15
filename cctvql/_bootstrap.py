@@ -139,6 +139,9 @@ def _create_adapter(adapter_type: str, cfg: dict):
             host=cfg.get("host", "http://localhost:5000"),
             mqtt_host=cfg.get("mqtt_host"),
             mqtt_port=cfg.get("mqtt_port", 1883),
+            mqtt_topic_prefix=cfg.get("mqtt_topic_prefix", "frigate"),
+            mqtt_username=cfg.get("mqtt_username"),
+            mqtt_password=cfg.get("mqtt_password"),
         )
     elif adapter_type == "onvif":
         from cctvql.adapters.onvif import ONVIFAdapter
