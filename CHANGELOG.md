@@ -10,8 +10,32 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ## [Unreleased]
 
 ### Planned
-- App Store / Play Store submission (EAS build pipeline)
-- Deepface / InsightFace backend option (GPU path, multi-angle enrolment)
+- App Store / Play Store submission (requires Apple/Google developer credentials)
+- InsightFace backend option (alternative to DeepFace)
+
+---
+
+## [0.9.0] — 2026-06-23
+
+### Added
+- **Pluggable face recognition backend system** (`cctvql/core/face_backends/`)
+  - `BaseFaceBackend` — abstract interface: `embed_single`, `detect_and_embed`, `compare`
+  - `DlibBackend` — wraps existing `face_recognition` library (128-d Euclidean); default backend
+  - `DeepFaceBackend` — wraps `deepface` library (ArcFace 512-d cosine); GPU support via
+    TensorFlow/PyTorch; configurable model (`ArcFace`, `Facenet512`, `VGG-Face`, …) and
+    detector backend (`retinaface`, `mtcnn`, `opencv`, …)
+  - `get_backend(name)` factory in `cctvql/core/face_backends/__init__.py`
+  - `FaceRegistry` now accepts a `backend=` kwarg; all embedding/comparison calls go through
+    the abstraction; per-backend tolerance defaults
+  - Select backend via `CCTVQL_FACE_BACKEND=deepface` env var (default: `dlib`)
+  - `[deepface]` optional dependency group: `pip install cctvql[deepface]`
+- **EAS mobile build pipeline** (`mobile/`)
+  - `mobile/eas.json` — development, preview, production profiles for iOS + Android
+  - `mobile/app.json` — OTA update config (EAS Update), runtime version policy
+  - `.github/workflows/mobile-build.yml` — EAS build on `mobile/v*` tag push; manual
+    dispatch with platform (ios/android/all) and profile selection; optional store submission
+  - `.github/workflows/mobile-ota.yml` — publishes OTA JS bundle update on every `main`
+    push that touches `mobile/`; no App Store review required for JS-only changes
 
 ---
 

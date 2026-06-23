@@ -68,6 +68,7 @@ from cctvql.adapters.base import AdapterRegistry
 from cctvql.core.alerts import AlertEngine, make_rule_from_context
 from cctvql.core.auth import ROLE_ADMIN, AuthManager, User
 from cctvql.core.database import Database
+from cctvql.core.face_backends import get_backend
 from cctvql.core.face_registry import FaceRegistry
 from cctvql.core.health_monitor import HealthMonitor
 from cctvql.core.multi_query import MultiSystemRouter
@@ -174,8 +175,15 @@ async def lifespan(app: FastAPI):
 
     # ── 3. Face registry ─────────────────────────────────────────────────────
     if _db is not None:
-        _face_registry = FaceRegistry(_db)
+        _face_backend_name = os.environ.get("CCTVQL_FACE_BACKEND", "dlib").lower()
+        try:
+            _face_backend = get_backend(_face_backend_name)
+        except ValueError as _be:
+            logger.warning("Unknown CCTVQL_FACE_BACKEND '%s', falling back to dlib: %s", _face_backend_name, _be)
+            _face_backend = get_backend("dlib")
+        _face_registry = FaceRegistry(_db, backend=_face_backend)
         await _face_registry.load_cache()
+        logger.info("Face registry ready (backend=%s, available=%s)", _face_backend_name, _face_backend.available)
 
     # ── 4. Multi-tenant user store (opt-in) ──────────────────────────────────
     if _MULTI_TENANT:

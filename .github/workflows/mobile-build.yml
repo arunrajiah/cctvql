@@ -1,0 +1,83 @@
+name: Mobile Build (EAS)
+
+on:
+  push:
+    tags:
+      - "mobile/v*"
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform"
+        required: true
+        default: "all"
+        type: choice
+        options: [all, ios, android]
+      profile:
+        description: "Build profile"
+        required: true
+        default: "preview"
+        type: choice
+        options: [development, preview, production]
+      submit:
+        description: "Submit to stores after build?"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+jobs:
+  build:
+    name: EAS Build (${{ github.event.inputs.platform || 'all' }} / ${{ github.event.inputs.profile || 'production' }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+
+      - name: Resolve build inputs
+        id: inputs
+        run: |
+          # For tag pushes use production profile; for manual dispatch use the chosen profile
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "profile=production" >> "$GITHUB_OUTPUT"
+            echo "platform=all"       >> "$GITHUB_OUTPUT"
+          else
+            echo "profile=${{ github.event.inputs.profile }}"   >> "$GITHUB_OUTPUT"
+            echo "platform=${{ github.event.inputs.platform }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build (iOS)
+        if: steps.inputs.outputs.platform == 'ios' || steps.inputs.outputs.platform == 'all'
+        run: eas build --platform ios --profile ${{ steps.inputs.outputs.profile }} --non-interactive
+
+      - name: Build (Android)
+        if: steps.inputs.outputs.platform == 'android' || steps.inputs.outputs.platform == 'all'
+        run: eas build --platform android --profile ${{ steps.inputs.outputs.profile }} --non-interactive
+
+      - name: Submit to stores
+        if: github.event.inputs.submit == 'true' || github.event_name == 'push'
+        run: |
+          if [[ "${{ steps.inputs.outputs.platform }}" == "ios" || "${{ steps.inputs.outputs.platform }}" == "all" ]]; then
+            eas submit --platform ios --latest --non-interactive
+          fi
+          if [[ "${{ steps.inputs.outputs.platform }}" == "android" || "${{ steps.inputs.outputs.platform }}" == "all" ]]; then
+            eas submit --platform android --latest --non-interactive
+          fi
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}

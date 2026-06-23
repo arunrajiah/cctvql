@@ -1,0 +1,45 @@
+name: Mobile OTA Update (EAS Update)
+
+# Publish an over-the-air JS bundle update whenever the mobile/ directory
+# changes on main. iOS and Android apps pick it up automatically on next launch
+# without requiring an App Store review cycle.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "mobile/**"
+
+env:
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+jobs:
+  update:
+    name: Publish OTA update
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+
+      - name: Publish OTA update
+        run: |
+          eas update \
+            --branch main \
+            --message "OTA: ${{ github.sha }} — ${{ github.event.head_commit.message }}" \
+            --non-interactive

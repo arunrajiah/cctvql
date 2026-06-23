@@ -449,8 +449,9 @@ A native Home Assistant custom integration is planned. For now, use the REST API
 - [x] Multi-tenant support — JWT auth, per-user camera permissions, admin user management (`CCTVQL_MULTI_TENANT=1`)
 - [x] Mobile app — React Native (Expo) iOS + Android client with live events, NLP chat, PTZ joystick, face enrolment
 - [x] Face recognition NLP integration — "Was Alice home last night?" routes to `search_faces` intent, scans event snapshots for the named person
-- [ ] App Store / Play Store submission (EAS build pipeline)
-- [ ] Deepface / InsightFace backend option (GPU path, multi-angle enrolment)
+- [x] DeepFace backend option — pluggable `BaseFaceBackend`; ArcFace 512-d cosine, GPU support, select via `CCTVQL_FACE_BACKEND=deepface`
+- [x] EAS mobile build pipeline — `eas.json` profiles, OTA update CI workflow, store submission workflow on `mobile/v*` tags
+- [ ] App Store / Play Store submission (requires Apple/Google developer credentials)
 
 ---
 

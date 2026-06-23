@@ -3,12 +3,15 @@ cctvQL Face Registry
 --------------------
 Enroll known faces and recognise them across CCTV event snapshots.
 
-The registry stores per-person face embeddings (128-d vectors) in SQLite.
-Recognition is performed by the ``face_recognition`` library (optional
-dependency — ``pip install cctvql[face]``).  When the library is not
-installed the module degrades gracefully: enrolment stores the raw image
-bytes and all ``recognise_*`` calls return an empty list with a logged
-warning.
+The registry stores per-person face embeddings in SQLite and uses a
+pluggable backend for embedding extraction and comparison:
+
+  - ``dlib``     (default) — face_recognition library; 128-d Euclidean space
+  - ``deepface`` — DeepFace library; ArcFace 512-d cosine space, GPU support
+
+Install backends:
+  pip install cctvql[face]      # dlib (default)
+  pip install cctvql[deepface]  # DeepFace / ArcFace
 
 Typical flow:
   1. Operator enrolls a face:
@@ -18,37 +21,26 @@ Typical flow:
         matches = await registry.recognise_image(image_bytes)
         # → [Match(face_id=..., name="Alice", confidence=0.92), ...]
   4. Event metadata is enriched with the matched names.
+
+When no backend library is installed, enrolment stores the raw image and
+all recognise_* calls return an empty list with a clear error message.
 """
 
 from __future__ import annotations
 
 import base64
-import io
+import json
 import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+import numpy as np
+
+from cctvql.core.face_backends import BaseFaceBackend, DlibBackend
+
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Optional heavy dependency
-# ---------------------------------------------------------------------------
-
-try:
-    import face_recognition as _fr  # type: ignore[import]
-
-    _FR_AVAILABLE = True
-    logger.debug("face_recognition library loaded — recognition enabled.")
-except ImportError:
-    _fr = None  # type: ignore[assignment]
-    _FR_AVAILABLE = False
-    logger.warning(
-        "face_recognition library not installed. "
-        "Install it with: pip install cctvql[face]\n"
-        "Face enrolment will store images but recognition will return no matches."
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +75,7 @@ class RecognitionResult:
 
     matches: list[FaceMatch] = field(default_factory=list)
     face_count: int = 0  # how many faces the detector found in the image
-    recognition_available: bool = _FR_AVAILABLE
+    recognition_available: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -96,20 +88,23 @@ class FaceRegistry:
     Async facade for face enrolment and recognition backed by SQLite.
 
     Args:
-        db: An open ``cctvql.core.database.Database`` instance.
-            The registry uses it for persistent storage of enrollments
-            and their embeddings.
+        db:      An open ``cctvql.core.database.Database`` instance.
+        backend: A ``BaseFaceBackend`` instance.  Defaults to ``DlibBackend``
+                 (uses the ``face_recognition`` library).  Pass a
+                 ``DeepFaceBackend`` instance for GPU-accelerated ArcFace
+                 recognition.
     """
 
-    # Default Euclidean-distance threshold (face_recognition uses distance,
-    # not similarity; 0.6 is the library's recommended default).
-    DEFAULT_TOLERANCE: float = 0.6
-
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: Any, backend: BaseFaceBackend | None = None) -> None:
         self._db = db
+        self._backend: BaseFaceBackend = backend or DlibBackend()
         # In-memory cache: face_id → (name, label, embedding | None)
         self._cache: dict[str, tuple[str, str, list[float] | None]] = {}
         self._cache_loaded = False
+
+    @property
+    def backend(self) -> BaseFaceBackend:
+        return self._backend
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -122,15 +117,17 @@ class FaceRegistry:
         for row in rows:
             embedding: list[float] | None = None
             if row.get("embedding"):
-                import json
-
                 try:
                     embedding = json.loads(row["embedding"])
                 except Exception:
                     pass
             self._cache[row["face_id"]] = (row["name"], row["label"], embedding)
         self._cache_loaded = True
-        logger.debug("FaceRegistry cache loaded: %d enrollment(s).", len(self._cache))
+        logger.debug(
+            "FaceRegistry cache loaded: %d enrollment(s) [backend=%s].",
+            len(self._cache),
+            type(self._backend).__name__,
+        )
 
     # ------------------------------------------------------------------
     # Enrolment
@@ -156,13 +153,17 @@ class FaceRegistry:
             The newly created FaceEnrollment.
 
         Raises:
-            ValueError: If no face is detected in the image, or if more than
-                        one face is present and the library is available.
+            ValueError: If no face is detected, or more than one face is present.
         """
         embedding: list[float] | None = None
 
-        if _FR_AVAILABLE:
-            embedding = _extract_embedding(image_bytes)
+        if self._backend.available:
+            try:
+                embedding = self._backend.embed_single(image_bytes)
+            except ValueError:
+                raise  # propagate "no face / multiple faces" errors
+            except Exception as exc:
+                logger.warning("embed_single failed (%s), storing image only.", exc)
 
         face_id = str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
@@ -177,9 +178,8 @@ class FaceRegistry:
             created_at=now,
         )
 
-        # Update cache
         self._cache[face_id] = (name, label, embedding)
-        logger.info("Enrolled face '%s' (id=%s).", name, face_id)
+        logger.info("Enrolled face '%s' (id=%s, backend=%s).", name, face_id, type(self._backend).__name__)
 
         return FaceEnrollment(
             face_id=face_id,
@@ -236,25 +236,31 @@ class FaceRegistry:
     async def recognise_image(
         self,
         image_bytes: bytes,
-        tolerance: float = DEFAULT_TOLERANCE,
+        tolerance: float | None = None,
     ) -> RecognitionResult:
         """
         Find enrolled faces in the given image.
 
         Args:
             image_bytes: Raw image bytes (JPEG or PNG).
-            tolerance:   Maximum face distance to count as a match.
-                         Lower = stricter (default 0.6 per face_recognition docs).
+            tolerance:   Maximum distance to count as a match. Falls back to
+                         the backend's default if not supplied.
 
         Returns:
-            RecognitionResult with a list of FaceMatch objects sorted by
-            confidence (highest first).
+            RecognitionResult with matches sorted by confidence (highest first).
         """
-        if not _FR_AVAILABLE:
+        if not self._backend.available:
+            logger.warning(
+                "Face recognition backend '%s' is not available. "
+                "Install the required library (see pyproject.toml optional deps).",
+                type(self._backend).__name__,
+            )
             return RecognitionResult(recognition_available=False)
 
         if not self._cache_loaded:
             await self.load_cache()
+
+        tol = tolerance if tolerance is not None else self._backend.tolerance
 
         # Build known-faces arrays from cache (skip entries with no embedding)
         known_ids: list[str] = []
@@ -272,35 +278,29 @@ class FaceRegistry:
         if not known_embeddings:
             return RecognitionResult(recognition_available=True)
 
-        # Detect faces in the query image
+        # Detect all faces in the query image
         try:
-            img_array = _load_image(image_bytes)
+            query_embeddings = self._backend.detect_and_embed(image_bytes)
         except Exception as exc:
-            logger.warning("Could not decode image for recognition: %s", exc)
+            logger.warning("detect_and_embed failed: %s", exc)
             return RecognitionResult(recognition_available=True)
 
-        face_locations = _fr.face_locations(img_array, model="hog")
-        face_count = len(face_locations)
-
+        face_count = len(query_embeddings)
         if face_count == 0:
             return RecognitionResult(face_count=0, recognition_available=True)
-
-        query_embeddings = _fr.face_encodings(img_array, face_locations)
 
         matches: list[FaceMatch] = []
         seen: set[str] = set()  # deduplicate per face_id within this image
 
-        import numpy as np  # numpy is a face_recognition transitive dep
-
         for query_emb in query_embeddings:
-            distances = _fr.face_distance(known_embeddings, query_emb)
+            distances = self._backend.compare(known_embeddings, query_emb)
             for i, dist in enumerate(distances):
-                if dist <= tolerance:
+                if dist <= tol:
                     fid = known_ids[i]
                     if fid in seen:
                         continue
                     seen.add(fid)
-                    confidence = float(np.clip(1.0 - dist / tolerance, 0.0, 1.0))
+                    confidence = float(np.clip(1.0 - dist / tol, 0.0, 1.0))
                     matches.append(
                         FaceMatch(
                             face_id=fid,
@@ -320,14 +320,14 @@ class FaceRegistry:
     async def recognise_url(
         self,
         image_url: str,
-        tolerance: float = DEFAULT_TOLERANCE,
+        tolerance: float | None = None,
     ) -> RecognitionResult:
         """
         Fetch an image by URL and run recognition on it.
 
         Args:
             image_url: Publicly reachable (or LAN-reachable) URL.
-            tolerance: Matching threshold (default 0.6).
+            tolerance: Matching threshold; defaults to backend's tolerance.
 
         Returns:
             RecognitionResult, or RecognitionResult(recognition_available=False)
@@ -342,7 +342,7 @@ class FaceRegistry:
                 image_bytes = resp.content
         except Exception as exc:
             logger.warning("Failed to fetch image for recognition from %s: %s", image_url, exc)
-            return RecognitionResult(recognition_available=_FR_AVAILABLE)
+            return RecognitionResult(recognition_available=self._backend.available)
 
         return await self.recognise_image(image_bytes, tolerance=tolerance)
 
@@ -350,39 +350,6 @@ class FaceRegistry:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _extract_embedding(image_bytes: bytes) -> list[float]:
-    """
-    Compute the 128-d face embedding for the dominant face in the image.
-
-    Raises:
-        ValueError: If no face is found or more than one face is present.
-    """
-    img = _load_image(image_bytes)
-    locations = _fr.face_locations(img, model="hog")
-    if len(locations) == 0:
-        raise ValueError(
-            "No face detected in the enrollment image. "
-            "Please provide a clear, well-lit frontal photo."
-        )
-    if len(locations) > 1:
-        raise ValueError(
-            f"{len(locations)} faces detected in the enrollment image. "
-            "Please provide a photo containing exactly one person."
-        )
-    encodings = _fr.face_encodings(img, locations)
-    return [float(v) for v in encodings[0]]
-
-
-def _load_image(image_bytes: bytes):  # type: ignore[return]
-    """Decode raw bytes into a numpy array suitable for face_recognition."""
-    from PIL import Image  # Pillow — transitive dep of face_recognition
-
-    pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    import numpy as np
-
-    return np.array(pil_img)
 
 
 def _to_b64(image_bytes: bytes, content_type: str) -> str:
@@ -395,6 +362,4 @@ def _embedding_to_json(embedding: list[float] | None) -> str | None:
     """Serialise an embedding to a compact JSON string for SQLite storage."""
     if embedding is None:
         return None
-    import json
-
     return json.dumps(embedding, separators=(",", ":"))

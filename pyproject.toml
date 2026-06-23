@@ -44,6 +44,7 @@ onvif = ["onvif-zeep>=0.2.12"]
 voice = ["openai>=1.0", "faster-whisper>=1.0"]
 notifications = ["aiosmtplib>=3.0"]
 face = ["face_recognition>=1.3", "Pillow>=10.0", "numpy>=1.26"]
+deepface = ["deepface>=0.0.93", "Pillow>=10.0", "numpy>=1.26"]
 push = ["google-auth>=2.30"]
 all = ["cctvql[mqtt,onvif,voice,notifications,face,push]"]
 dev = [
