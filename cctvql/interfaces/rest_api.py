@@ -1438,8 +1438,8 @@ async def get_face(face_id: str) -> FaceEnrollResponse:
     )
 
 
-@app.delete("/faces/{face_id}", status_code=204)
-async def delete_face(face_id: str, request: Request) -> None:
+@app.delete("/faces/{face_id}", status_code=204, response_model=None)
+async def delete_face(face_id: str, request: Request) -> Response:
     """Delete a face enrollment.  Admin-only in multi-tenant mode."""
     user = await _get_current_user(request)
     if _MULTI_TENANT:
@@ -1450,6 +1450,7 @@ async def delete_face(face_id: str, request: Request) -> None:
     deleted = await _face_registry.delete_enrollment(face_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Face '{face_id}' not found.")
+    return Response(status_code=204)
 
 
 @app.post("/faces/recognize", response_model=RecognizeResponse)
@@ -1560,12 +1561,13 @@ async def register_push_token(
     )
 
 
-@app.delete("/push/register/{token}", status_code=204)
-async def unregister_push_token(token: str) -> None:
+@app.delete("/push/register/{token}", status_code=204, response_model=None)
+async def unregister_push_token(token: str) -> Response:
     """Remove a registered push token."""
     if _db is None:
         raise HTTPException(status_code=503, detail="Database not available.")
     await _db.delete_push_token(token)
+    return Response(status_code=204)
 
 
 @app.get("/push/tokens", response_model=list[PushTokenResponse])
