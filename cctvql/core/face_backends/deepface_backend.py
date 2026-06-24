@@ -19,8 +19,6 @@ import io
 import logging
 from typing import Any
 
-import numpy as np
-
 from cctvql.core.face_backends.base import BaseFaceBackend
 
 logger = logging.getLogger(__name__)
@@ -137,6 +135,7 @@ class DeepFaceBackend(BaseFaceBackend):
         """
         if not known_embeddings:
             return []
+        import numpy as np
         known = np.array(known_embeddings, dtype=np.float32)
         query = np.array(query_embedding, dtype=np.float32)
 
@@ -157,6 +156,7 @@ class DeepFaceBackend(BaseFaceBackend):
 
 def _bytes_to_array(image_bytes: bytes):
     """Decode raw bytes to a numpy RGB array that DeepFace can consume."""
+    import numpy as np
     from PIL import Image
     pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     return np.array(pil_img)
@@ -164,6 +164,7 @@ def _bytes_to_array(image_bytes: bytes):
 
 def _normalise(embedding: list[Any]) -> list[float]:
     """Return a plain list[float] with L2-normalised values."""
+    import numpy as np
     arr = np.array(embedding, dtype=np.float32)
     norm = np.linalg.norm(arr)
     if norm > 0:

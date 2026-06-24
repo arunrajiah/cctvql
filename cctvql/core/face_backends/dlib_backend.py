@@ -79,14 +79,13 @@ class DlibBackend(BaseFaceBackend):
             raise ImportError(
                 "face_recognition is not installed. Run: pip install cctvql[face]"
             )
-        import numpy as np
         distances = _fr.face_distance(known_embeddings, query_embedding)
         return [float(d) for d in distances]
 
 
 def _load_image(image_bytes: bytes):
     """Decode bytes to a numpy RGB array."""
-    from PIL import Image
     import numpy as np
+    from PIL import Image
     pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     return np.array(pil_img)

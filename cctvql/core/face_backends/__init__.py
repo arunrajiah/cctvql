@@ -16,8 +16,8 @@ Usage
 from __future__ import annotations
 
 from cctvql.core.face_backends.base import BaseFaceBackend
-from cctvql.core.face_backends.dlib_backend import DlibBackend
 from cctvql.core.face_backends.deepface_backend import DeepFaceBackend
+from cctvql.core.face_backends.dlib_backend import DlibBackend
 
 _REGISTRY: dict[str, type[BaseFaceBackend]] = {
     "dlib": DlibBackend,

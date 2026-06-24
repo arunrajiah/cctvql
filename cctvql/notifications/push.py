@@ -29,7 +29,7 @@ from typing import Any
 
 import httpx
 
-from cctvql.notifications.base import BaseNotifier
+from cctvql.notifications.base import BaseNotifier, NotificationPayload
 
 logger = logging.getLogger(__name__)
 
@@ -74,16 +74,8 @@ class PushNotifier(BaseNotifier):
     # BaseNotifier interface
     # ------------------------------------------------------------------
 
-    async def send(self, subject: str, body: str, **kwargs: Any) -> None:
-        """
-        Push an alert to all registered mobile devices.
-
-        Args:
-            subject: Short notification title.
-            body:    Notification body text.
-            kwargs:  Optional extras forwarded as FCM ``data`` payload:
-                     camera, event_id, snapshot_url, severity.
-        """
+    async def send(self, payload: NotificationPayload) -> None:
+        """Push an alert to all registered mobile devices."""
         tokens = await self._get_tokens()
         if not tokens:
             logger.debug("PushNotifier: no registered device tokens — skipping.")
@@ -99,22 +91,25 @@ class PushNotifier(BaseNotifier):
             "Content-Type": "application/json",
         }
 
-        # Build optional data payload from kwargs
+        # Build optional data payload from NotificationPayload fields
         data_payload: dict[str, str] = {}
-        for key in ("camera", "event_id", "snapshot_url", "severity", "rule_id"):
-            if key in kwargs and kwargs[key] is not None:
-                data_payload[key] = str(kwargs[key])
+        if payload.event_id is not None:
+            data_payload["event_id"] = payload.event_id
+        if payload.camera_name is not None:
+            data_payload["camera"] = payload.camera_name
+        if payload.snapshot_url is not None:
+            data_payload["snapshot_url"] = payload.snapshot_url
 
         invalid_tokens: list[str] = []
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             for token in tokens:
-                payload = {
+                fcm_payload = {
                     "message": {
                         "token": token,
                         "notification": {
-                            "title": subject,
-                            "body": body,
+                            "title": payload.title,
+                            "body": payload.body,
                         },
                         "data": data_payload,
                         "android": {
@@ -133,7 +128,7 @@ class PushNotifier(BaseNotifier):
                 }
 
                 try:
-                    resp = await client.post(send_url, headers=headers, json=payload)
+                    resp = await client.post(send_url, headers=headers, json=fcm_payload)
                     if resp.status_code == 200:
                         logger.debug("Push sent to token …%s", token[-8:])
                     elif resp.status_code in (400, 404):
@@ -195,8 +190,8 @@ class PushNotifier(BaseNotifier):
         (and logs a warning) when the library is not installed.
         """
         try:
-            from google.oauth2 import service_account  # type: ignore[import]
             import google.auth.transport.requests  # type: ignore[import]
+            from google.oauth2 import service_account  # type: ignore[import]
         except ImportError:
             logger.warning(
                 "google-auth is not installed — push notifications disabled. "
