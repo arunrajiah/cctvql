@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="CCTVQL logo">
+  <defs><linearGradient id="g" x1="12" y1="12" x2="84" y2="84" gradientUnits="userSpaceOnUse"><stop stop-color="#111827"/><stop offset="1" stop-color="#64748B"/></linearGradient></defs>
+  <rect width="96" height="96" rx="22" fill="url(#g)"/>
+  <rect x="22" y="31" width="43" height="28" rx="8" fill="#fff"/>
+  <path d="M65 40l11-6v22l-11-6V40Z" fill="#CBD5E1"/>
+  <circle cx="43" cy="45" r="8" fill="#111827"/>
+  <path d="M30 70h34" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+</svg>
