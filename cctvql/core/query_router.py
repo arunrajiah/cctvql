@@ -548,7 +548,7 @@ class QueryRouter:
                 intent="search_faces",
                 error=(
                     "Please tell me whose name to look for, e.g. "
-                    "\"Was Alice home last night?\" or \"Show me events with Bob\"."
+                    '"Was Alice home last night?" or "Show me events with Bob".'
                 ),
             )
 
@@ -578,7 +578,7 @@ class QueryRouter:
                 success=True,
                 intent="search_faces",
                 summary=(
-                    f"No events found in the requested time range"
+                    "No events found in the requested time range"
                     + (f" on {ctx.camera_name}" if ctx.camera_name else "")
                     + " to search through."
                 ),
@@ -604,10 +604,7 @@ class QueryRouter:
                             "Run: pip install cctvql[face]"
                         ),
                     )
-                matched = [
-                    m for m in result.matches
-                    if person_name.lower() in m.name.lower()
-                ]
+                matched = [m for m in result.matches if person_name.lower() in m.name.lower()]
                 if matched:
                     best = max(matched, key=lambda m: m.confidence)
                     hits.append((event, best.confidence))

@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 try:
     import deepface  # type: ignore[import]   # noqa: F401
     from deepface import DeepFace as _DeepFace  # type: ignore[import]
+
     _AVAILABLE = True
 except ImportError:
     _DeepFace = None  # type: ignore[assignment]
@@ -81,9 +82,7 @@ class DeepFaceBackend(BaseFaceBackend):
     def embed_single(self, image_bytes: bytes) -> list[float]:
         """Extract embedding for the one face in the image (for enrollment)."""
         if not _AVAILABLE:
-            raise ImportError(
-                "deepface is not installed. Run: pip install cctvql[deepface]"
-            )
+            raise ImportError("deepface is not installed. Run: pip install cctvql[deepface]")
         img_array = _bytes_to_array(image_bytes)
         embeddings = _DeepFace.represent(
             img_path=img_array,
@@ -106,9 +105,7 @@ class DeepFaceBackend(BaseFaceBackend):
     def detect_and_embed(self, image_bytes: bytes) -> list[list[float]]:
         """Detect all faces and return one embedding per face."""
         if not _AVAILABLE:
-            raise ImportError(
-                "deepface is not installed. Run: pip install cctvql[deepface]"
-            )
+            raise ImportError("deepface is not installed. Run: pip install cctvql[deepface]")
         img_array = _bytes_to_array(image_bytes)
         try:
             results = _DeepFace.represent(
@@ -136,6 +133,7 @@ class DeepFaceBackend(BaseFaceBackend):
         if not known_embeddings:
             return []
         import numpy as np
+
         known = np.array(known_embeddings, dtype=np.float32)
         query = np.array(query_embedding, dtype=np.float32)
 
@@ -154,10 +152,12 @@ class DeepFaceBackend(BaseFaceBackend):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _bytes_to_array(image_bytes: bytes):
     """Decode raw bytes to a numpy RGB array that DeepFace can consume."""
     import numpy as np
     from PIL import Image
+
     pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     return np.array(pil_img)
 
@@ -165,6 +165,7 @@ def _bytes_to_array(image_bytes: bytes):
 def _normalise(embedding: list[Any]) -> list[float]:
     """Return a plain list[float] with L2-normalised values."""
     import numpy as np
+
     arr = np.array(embedding, dtype=np.float32)
     norm = np.linalg.norm(arr)
     if norm > 0:

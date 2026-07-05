@@ -37,9 +37,7 @@ def get_backend(name: str = "dlib") -> BaseFaceBackend:
     """
     cls = _REGISTRY.get(name.lower())
     if cls is None:
-        raise ValueError(
-            f"Unknown face backend '{name}'. Available: {list(_REGISTRY)}"
-        )
+        raise ValueError(f"Unknown face backend '{name}'. Available: {list(_REGISTRY)}")
     return cls()
 
 

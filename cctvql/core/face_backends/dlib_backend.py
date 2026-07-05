@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import face_recognition as _fr  # type: ignore[import]
+
     _AVAILABLE = True
 except ImportError:
     _fr = None  # type: ignore[assignment]
@@ -40,9 +41,7 @@ class DlibBackend(BaseFaceBackend):
 
     def embed_single(self, image_bytes: bytes) -> list[float]:
         if not _AVAILABLE:
-            raise ImportError(
-                "face_recognition is not installed. Run: pip install cctvql[face]"
-            )
+            raise ImportError("face_recognition is not installed. Run: pip install cctvql[face]")
         img = _load_image(image_bytes)
         locations = _fr.face_locations(img, model="hog")
         if len(locations) == 0:
@@ -60,9 +59,7 @@ class DlibBackend(BaseFaceBackend):
 
     def detect_and_embed(self, image_bytes: bytes) -> list[list[float]]:
         if not _AVAILABLE:
-            raise ImportError(
-                "face_recognition is not installed. Run: pip install cctvql[face]"
-            )
+            raise ImportError("face_recognition is not installed. Run: pip install cctvql[face]")
         img = _load_image(image_bytes)
         locations = _fr.face_locations(img, model="hog")
         if not locations:
@@ -76,9 +73,7 @@ class DlibBackend(BaseFaceBackend):
         query_embedding: list[float],
     ) -> list[float]:
         if not _AVAILABLE:
-            raise ImportError(
-                "face_recognition is not installed. Run: pip install cctvql[face]"
-            )
+            raise ImportError("face_recognition is not installed. Run: pip install cctvql[face]")
         distances = _fr.face_distance(known_embeddings, query_embedding)
         return [float(d) for d in distances]
 
@@ -87,5 +82,6 @@ def _load_image(image_bytes: bytes):
     """Decode bytes to a numpy RGB array."""
     import numpy as np
     from PIL import Image
+
     pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     return np.array(pil_img)

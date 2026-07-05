@@ -179,7 +179,12 @@ class FaceRegistry:
         )
 
         self._cache[face_id] = (name, label, embedding)
-        logger.info("Enrolled face '%s' (id=%s, backend=%s).", name, face_id, type(self._backend).__name__)
+        logger.info(
+            "Enrolled face '%s' (id=%s, backend=%s).",
+            name,
+            face_id,
+            type(self._backend).__name__,
+        )
 
         return FaceEnrollment(
             face_id=face_id,

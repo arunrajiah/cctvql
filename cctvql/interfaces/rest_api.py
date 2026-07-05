@@ -150,7 +150,8 @@ _face_registry: FaceRegistry | None = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _db, _session_store, _alert_engine, _health_monitor, _auth_manager, _user_store, _face_registry
+    global _db, _session_store, _alert_engine, _health_monitor
+    global _auth_manager, _user_store, _face_registry
 
     # ── 1. Adapter connection ────────────────────────────────────────────────
     try:
@@ -179,11 +180,19 @@ async def lifespan(app: FastAPI):
         try:
             _face_backend = get_backend(_face_backend_name)
         except ValueError as _be:
-            logger.warning("Unknown CCTVQL_FACE_BACKEND '%s', falling back to dlib: %s", _face_backend_name, _be)
+            logger.warning(
+                "Unknown CCTVQL_FACE_BACKEND '%s', falling back to dlib: %s",
+                _face_backend_name,
+                _be,
+            )
             _face_backend = get_backend("dlib")
         _face_registry = FaceRegistry(_db, backend=_face_backend)
         await _face_registry.load_cache()
-        logger.info("Face registry ready (backend=%s, available=%s)", _face_backend_name, _face_backend.available)
+        logger.info(
+            "Face registry ready (backend=%s, available=%s)",
+            _face_backend_name,
+            _face_backend.available,
+        )
 
     # ── 4. Multi-tenant user store (opt-in) ──────────────────────────────────
     if _MULTI_TENANT:
@@ -1344,10 +1353,7 @@ async def get_event_summary(
         camera_name=event.camera_name,
         timestamp=event.start_time.isoformat(),
         summary=summary_text,
-        objects=[
-            {"label": o.label, "confidence": round(o.confidence, 3)}
-            for o in event.objects
-        ],
+        objects=[{"label": o.label, "confidence": round(o.confidence, 3)} for o in event.objects],
         zones=event.zones,
         snapshot_url=event.snapshot_url,
         clip_url=event.clip_url,

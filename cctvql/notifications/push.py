@@ -33,9 +33,7 @@ from cctvql.notifications.base import BaseNotifier, NotificationPayload
 
 logger = logging.getLogger(__name__)
 
-_FCM_SEND_URL = (
-    "https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
-)
+_FCM_SEND_URL = "https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
 
 # Scopes required by the FCM HTTP v1 API
 _FCM_SCOPES = ["https://www.googleapis.com/auth/firebase.messaging"]
@@ -135,9 +133,7 @@ class PushNotifier(BaseNotifier):
                         # Token is invalid / unregistered — clean up
                         error_body = resp.json()
                         err_status = (
-                            error_body.get("error", {})
-                            .get("details", [{}])[0]
-                            .get("errorCode", "")
+                            error_body.get("error", {}).get("details", [{}])[0].get("errorCode", "")
                         )
                         if err_status in ("UNREGISTERED", "INVALID_ARGUMENT"):
                             logger.info(
@@ -203,16 +199,12 @@ class PushNotifier(BaseNotifier):
             try:
                 if self._key_json:
                     info = json.loads(self._key_json)
-                    self._credentials = (
-                        service_account.Credentials.from_service_account_info(
-                            info, scopes=_FCM_SCOPES
-                        )
+                    self._credentials = service_account.Credentials.from_service_account_info(
+                        info, scopes=_FCM_SCOPES
                     )
                 elif self._key_path:
-                    self._credentials = (
-                        service_account.Credentials.from_service_account_file(
-                            self._key_path, scopes=_FCM_SCOPES
-                        )
+                    self._credentials = service_account.Credentials.from_service_account_file(
+                        self._key_path, scopes=_FCM_SCOPES
                     )
                 else:
                     logger.error(
