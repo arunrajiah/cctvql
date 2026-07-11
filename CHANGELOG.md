@@ -11,7 +11,23 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Planned
 - App Store / Play Store submission (requires Apple/Google developer credentials)
-- InsightFace backend option (alternative to DeepFace)
+
+---
+
+## [0.10.0] — 2026-07-11
+
+### Added
+- **InsightFace backend** (`cctvql/core/face_backends/insightface_backend.py`)
+  - `InsightFaceBackend` wraps the `insightface` library with ONNX Runtime inference
+  - 512-d ArcFace embeddings; cosine distance threshold 0.40 (consistent with DeepFace backend)
+  - GPU acceleration via `CUDAExecutionProvider` with automatic CPU fallback
+  - Configurable model pack (`buffalo_l` default, `buffalo_m`, `buffalo_s`, `buffalo_sc`)
+  - Lazy model initialisation: model files are loaded on first inference call, not at import time
+  - All numpy/insightface/PIL imports are lazy so CI without these packages is unaffected
+  - Select via `CCTVQL_FACE_BACKEND=insightface`
+  - New optional extra: `pip install cctvql[insightface]` (insightface>=0.7, onnxruntime>=1.17)
+- `"insightface"` registered in `_REGISTRY` in `cctvql/core/face_backends/__init__.py`
+- `all` optional-dependency group now includes `deepface` and `insightface`
 
 ---
 

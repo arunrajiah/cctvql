@@ -18,10 +18,12 @@ from __future__ import annotations
 from cctvql.core.face_backends.base import BaseFaceBackend
 from cctvql.core.face_backends.deepface_backend import DeepFaceBackend
 from cctvql.core.face_backends.dlib_backend import DlibBackend
+from cctvql.core.face_backends.insightface_backend import InsightFaceBackend
 
 _REGISTRY: dict[str, type[BaseFaceBackend]] = {
-    "dlib": DlibBackend,
     "deepface": DeepFaceBackend,
+    "dlib": DlibBackend,
+    "insightface": InsightFaceBackend,
 }
 
 
@@ -30,7 +32,7 @@ def get_backend(name: str = "dlib") -> BaseFaceBackend:
     Return an instantiated face backend by name.
 
     Args:
-        name: ``"dlib"`` (default) or ``"deepface"``.
+        name: ``"dlib"`` (default), ``"deepface"``, or ``"insightface"``.
 
     Raises:
         ValueError: If the backend name is not recognised.
@@ -41,4 +43,4 @@ def get_backend(name: str = "dlib") -> BaseFaceBackend:
     return cls()
 
 
-__all__ = ["BaseFaceBackend", "DlibBackend", "DeepFaceBackend", "get_backend"]
+__all__ = ["BaseFaceBackend", "DeepFaceBackend", "DlibBackend", "InsightFaceBackend", "get_backend"]
