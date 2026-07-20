@@ -85,7 +85,7 @@ class FrigateAdapter(BaseAdapter):
         try:
             r = await self._client.get(f"{self.host}/api/version")
             r.raise_for_status()
-            version = r.text.strip()  # Frigate /api/version returns plain text (e.g. "0.18-0"), not JSON
+            version = r.text.strip()  # Frigate returns plain text here, not JSON
             logger.info("Connected to Frigate %s at %s", version, self.host)
 
             if self.mqtt_host:
@@ -356,7 +356,7 @@ class FrigateAdapter(BaseAdapter):
         # Build detected objects list
         objects = []
         label = data.get("label", "unknown")
-        score = data.get("score") or data.get("top_score") or 0.0  # may be null on in-progress events
+        score = data.get("score") or data.get("top_score") or 0.0  # null on in-progress events
         box = data.get("box") or data.get("region")
 
         bbox = None
