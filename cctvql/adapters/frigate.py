@@ -59,12 +59,16 @@ class FrigateAdapter(BaseAdapter):
         mqtt_host: str | None = None,
         mqtt_port: int = 1883,
         mqtt_topic_prefix: str = "frigate",
+        mqtt_username: str | None = None,
+        mqtt_password: str | None = None,
         api_timeout: float = 30.0,
     ) -> None:
         self.host = host.rstrip("/")
         self.mqtt_host = mqtt_host
         self.mqtt_port = mqtt_port
         self.mqtt_topic_prefix = mqtt_topic_prefix
+        self.mqtt_username = mqtt_username
+        self.mqtt_password = mqtt_password
         self._client = httpx.AsyncClient(timeout=api_timeout)
         self._mqtt_client: Any = None
         self._event_callbacks: list[Callable[[Event], None]] = []
@@ -81,7 +85,7 @@ class FrigateAdapter(BaseAdapter):
         try:
             r = await self._client.get(f"{self.host}/api/version")
             r.raise_for_status()
-            version = r.json()
+            version = r.text.strip()  # Frigate /api/version returns plain text (e.g. "0.18-0"), not JSON
             logger.info("Connected to Frigate %s at %s", version, self.host)
 
             if self.mqtt_host:
@@ -297,6 +301,8 @@ class FrigateAdapter(BaseAdapter):
             import paho.mqtt.client as mqtt
 
             client = mqtt.Client()
+            if self.mqtt_username:
+                client.username_pw_set(self.mqtt_username, self.mqtt_password)
             client.on_connect = self._on_mqtt_connect
             client.on_message = self._on_mqtt_message
             client.connect(self.mqtt_host, self.mqtt_port, 60)
@@ -309,9 +315,12 @@ class FrigateAdapter(BaseAdapter):
             logger.warning("MQTT connection failed: %s", exc)
 
     def _on_mqtt_connect(self, client: Any, userdata: Any, flags: Any, rc: int) -> None:
+        if rc != 0:
+            logger.warning("MQTT connection refused (rc=%s); not subscribing", rc)
+            return
         topic = f"{self.mqtt_topic_prefix}/events"
         client.subscribe(topic)
-        logger.debug("Subscribed to MQTT topic: %s", topic)
+        logger.info("Subscribed to MQTT topic: %s", topic)
 
     def _on_mqtt_message(self, client: Any, userdata: Any, msg: Any) -> None:
         import json
@@ -347,7 +356,7 @@ class FrigateAdapter(BaseAdapter):
         # Build detected objects list
         objects = []
         label = data.get("label", "unknown")
-        score = data.get("score") or data.get("top_score", 0.0)
+        score = data.get("score") or data.get("top_score") or 0.0  # may be null on in-progress events
         box = data.get("box") or data.get("region")
 
         bbox = None
