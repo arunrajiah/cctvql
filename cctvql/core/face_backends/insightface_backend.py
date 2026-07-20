@@ -60,6 +60,7 @@ class InsightFaceBackend(BaseFaceBackend):
     def available(self) -> bool:
         try:
             import insightface  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -72,6 +73,7 @@ class InsightFaceBackend(BaseFaceBackend):
         """Return the FaceAnalysis app, initialising it on first call."""
         if self._app is None:
             from insightface.app import FaceAnalysis  # type: ignore[import]
+
             app = FaceAnalysis(
                 name=self._model_name,
                 providers=self._providers,
@@ -87,9 +89,7 @@ class InsightFaceBackend(BaseFaceBackend):
     def embed_single(self, image_bytes: bytes) -> list[float]:
         """Extract the embedding for the one face in the image (for enrollment)."""
         if not self.available:
-            raise ImportError(
-                "insightface is not installed. Run: pip install cctvql[insightface]"
-            )
+            raise ImportError("insightface is not installed. Run: pip install cctvql[insightface]")
         img_array = _bytes_to_bgr_array(image_bytes)
         faces = self._get_app().get(img_array)
         if len(faces) == 0:
@@ -107,9 +107,7 @@ class InsightFaceBackend(BaseFaceBackend):
     def detect_and_embed(self, image_bytes: bytes) -> list[list[float]]:
         """Detect all faces and return one embedding per face."""
         if not self.available:
-            raise ImportError(
-                "insightface is not installed. Run: pip install cctvql[insightface]"
-            )
+            raise ImportError("insightface is not installed. Run: pip install cctvql[insightface]")
         img_array = _bytes_to_bgr_array(image_bytes)
         try:
             faces = self._get_app().get(img_array)
@@ -132,6 +130,7 @@ class InsightFaceBackend(BaseFaceBackend):
         if not known_embeddings:
             return []
         import numpy as np
+
         known = np.array(known_embeddings, dtype=np.float32)
         query = np.array(query_embedding, dtype=np.float32)
 
@@ -149,10 +148,12 @@ class InsightFaceBackend(BaseFaceBackend):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _bytes_to_bgr_array(image_bytes: bytes) -> Any:
     """Decode raw bytes to a numpy BGR array that InsightFace expects."""
     import numpy as np
     from PIL import Image
+
     pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     rgb = np.array(pil_img)
     # InsightFace uses OpenCV BGR convention
@@ -162,6 +163,7 @@ def _bytes_to_bgr_array(image_bytes: bytes) -> Any:
 def _normalise(embedding: Any) -> list[float]:
     """Return a plain list[float] with L2-normalised values."""
     import numpy as np
+
     arr = np.array(embedding, dtype=np.float32)
     norm = np.linalg.norm(arr)
     if norm > 0:
