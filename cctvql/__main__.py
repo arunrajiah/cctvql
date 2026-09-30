@@ -30,6 +30,21 @@ def main() -> None:
     serve_parser.add_argument("--port", type=int, default=8000)
     serve_parser.add_argument("--reload", action="store_true", help="Auto-reload on code changes")
 
+    # ---- mcp subcommand ----
+    mcp_parser = subparsers.add_parser(
+        "mcp", help="Start an MCP server (Streamable HTTP) for Alexa+ and other assistants"
+    )
+    mcp_parser.add_argument("--config", default="config/config.yaml")
+    mcp_parser.add_argument("--adapter", help="Force an adapter, e.g. demo")
+    mcp_parser.add_argument("--host", default="127.0.0.1")
+    mcp_parser.add_argument("--port", type=int, default=8765)
+    mcp_parser.add_argument(
+        "--token", help="Bearer token clients must send (or set CCTVQL_MCP_TOKEN)"
+    )
+    mcp_parser.add_argument(
+        "--allow-ptz", action="store_true", help="Expose the point_camera PTZ tool"
+    )
+
     # ---- discover subcommand ----
     discover_parser = subparsers.add_parser(
         "discover", help="Discover ONVIF cameras on the local network"
@@ -70,6 +85,24 @@ def main() -> None:
             port=args.port,
             reload=args.reload,
         )
+
+    elif args.command == "mcp":
+        from cctvql.adapters.base import AdapterRegistry
+
+        if args.adapter == "demo":
+            from cctvql.adapters.demo import LiveDemoAdapter
+
+            AdapterRegistry.register(LiveDemoAdapter())
+            AdapterRegistry.set_active("demo")
+        else:
+            from cctvql._bootstrap import bootstrap
+
+            bootstrap(args.config)
+            if args.adapter:
+                AdapterRegistry.set_active(args.adapter)
+        from cctvql.interfaces.mcp_server import run as run_mcp
+
+        run_mcp(host=args.host, port=args.port, token=args.token, allow_ptz=args.allow_ptz)
 
     elif args.command == "discover":
         import asyncio

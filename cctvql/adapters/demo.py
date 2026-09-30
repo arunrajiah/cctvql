@@ -678,3 +678,54 @@ class DemoAdapter(BaseAdapter):
 
     async def health_check(self) -> bool:
         return True
+
+
+class LiveDemoAdapter(DemoAdapter):
+    """
+    Demo adapter whose events are shifted so the newest one happened a few
+    minutes ago. Useful for live demos of time-relative questions such as
+    "was anyone at the front door in the last hour?".
+    """
+
+    def __init__(self, newest_minutes_ago: float = 5.0) -> None:
+        newest = max(e.start_time for e in _EVENTS)
+        now = datetime.now(timezone.utc)
+        self._offset = now - timedelta(minutes=newest_minutes_ago) - newest
+
+    @property
+    def name(self) -> str:
+        return "demo"
+
+    def _shift_event(self, evt: Event) -> Event:
+        from dataclasses import replace
+
+        return replace(
+            evt,
+            start_time=evt.start_time + self._offset,
+            end_time=evt.end_time + self._offset if evt.end_time else None,
+        )
+
+    async def get_events(
+        self,
+        camera_id: str | None = None,
+        camera_name: str | None = None,
+        label: str | None = None,
+        zone: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int = 20,
+    ) -> list[Event]:
+        events = await super().get_events(
+            camera_id=camera_id,
+            camera_name=camera_name,
+            label=label,
+            zone=zone,
+            start_time=start_time - self._offset if start_time else None,
+            end_time=end_time - self._offset if end_time else None,
+            limit=limit,
+        )
+        return [self._shift_event(e) for e in events]
+
+    async def get_event(self, event_id: str) -> Event | None:
+        evt = await super().get_event(event_id)
+        return self._shift_event(evt) if evt else None
