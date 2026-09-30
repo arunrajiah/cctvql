@@ -151,9 +151,8 @@ def _summarise(events: list[Event], place: str, window: str) -> str:
     what = _label_of(latest)
     return (
         f"{len(events)} event{'s' if len(events) != 1 else ''} {place} {window}: "
-        f"{', '.join(parts)}. The most recent was {_article(what)} {what} on "
-        f"{latest.camera_name.replace('_', ' ')}, "
-        f"{_ago(latest.start_time)}."
+        f"{', '.join(parts)}. The most recent was {_article(what)} {what} on the "
+        f"{latest.camera_name.replace('_', ' ')} camera, {_ago(latest.start_time)}."
     )
 
 
@@ -271,7 +270,7 @@ def build_server(
             limit=MAX_LIMIT,
         )
         events = [e for e in events if _aware(e.start_time) >= start]
-        where = f"at the {cam.name.replace('_', ' ')}" if cam else "on any camera"
+        where = f"at the {cam.name.replace('_', ' ')}" if cam else "across your cameras"
         if zone:
             where += f" in the {zone} zone"
         window = _window_text(minutes)
@@ -279,10 +278,10 @@ def build_server(
             answer = f"No, I didn't see any {_plural(lbl, 2)} {where} {window}."
         else:
             latest = max(events, key=lambda e: _aware(e.start_time))
+            on = "" if cam else f" on the {latest.camera_name.replace('_', ' ')} camera"
             answer = (
                 f"Yes. {len(events)} {_plural(lbl, len(events))} detected {where} {window}. "
-                f"The latest was on {latest.camera_name.replace('_', ' ')}, "
-                f"{_ago(latest.start_time)}."
+                f"The latest was{on} {_ago(latest.start_time)}."
             )
         return {"answer": answer, "events": [_event_dict(e) for e in events]}
 
@@ -302,7 +301,8 @@ def build_server(
         url = await ad.get_snapshot_url(camera_id=cam.id)
         if not url:
             return {"answer": f"{cam.name} has no snapshot available right now.", "url": None}
-        return {"answer": f"Here is the latest image from {cam.name}.", "url": url}
+        name = cam.name.replace("_", " ")
+        return {"answer": f"Here is the latest image from the {name} camera.", "url": url}
 
     @mcp.tool()
     async def camera_health() -> dict[str, Any]:
