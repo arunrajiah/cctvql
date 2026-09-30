@@ -159,6 +159,17 @@ cctvql chat
 
 ---
 
+## Ask from Alexa+ and other assistants (MCP)
+
+cctvQL ships an MCP server, so voice and chat assistants can query your cameras directly:
+
+```bash
+pip install "cctvql[mcp]"
+cctvql mcp --adapter demo        # try it with demo cameras
+```
+
+"Alexa, was anyone at the front door while I was out?" See [docs/mcp.md](docs/mcp.md).
+
 ## Documentation
 
 | Topic | Link |
