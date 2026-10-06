@@ -7,6 +7,17 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+
+## [Unreleased]
+
+### Added
+- MCP server (`cctvql mcp`) over Streamable HTTP, protocol 2025-11-25, so Alexa+ and other
+  assistants can ask about cameras: `list_cameras`, `recent_activity`, `who_was_at`,
+  `latest_snapshot`, `camera_health`, `ask_cameras`, and opt-in `point_camera`.
+  Optional bearer-token auth via `CCTVQL_MCP_TOKEN`. See docs/mcp.md.
+- `LiveDemoAdapter`: demo cameras with events shifted to the present, for live demos.
+- New `mcp` extra.
+
 ## [Unreleased]
 
 ### Planned
