@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mit cctvQL verbinden",
+        "description": "Gib Host und Port ein, unter denen dein cctvQL-Server läuft.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "api_key": "API-Schlüssel (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zu cctvQL nicht möglich. Prüfe Host und Port.",
+      "invalid_auth": "Ungültiger API-Schlüssel.",
+      "unknown": "Unerwarteter Fehler. Prüfe die Home-Assistant-Protokolle."
+    },
+    "abort": {
+      "already_configured": "cctvQL ist für diesen Host bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "cctvQL-Optionen",
+        "data": {
+          "scan_interval": "Abfrageintervall (Sekunden)"
+        }
+      }
+    }
+  },
+  "services": {
+    "query": {
+      "name": "Abfrage",
+      "description": "Stelle cctvQL eine Frage in natürlicher Sprache zu deinen Kameras.",
+      "fields": {
+        "query": {
+          "name": "Abfrage",
+          "description": "Frage in natürlicher Sprache, z. B. \"Waren letzte Nacht Personen in der Einfahrt?\""
+        },
+        "session_id": {
+          "name": "Sitzungs-ID",
+          "description": "Sitzungs-ID für Gespräche über mehrere Runden (Standard: homeassistant)."
+        }
+      }
+    },
+    "ptz": {
+      "name": "PTZ",
+      "description": "Sende einen Schwenk-, Neige- oder Zoombefehl an eine Kamera.",
+      "fields": {
+        "camera_id": {
+          "name": "Kamera-ID",
+          "description": "Kamera-ID, wie in der Kameraliste angezeigt."
+        },
+        "action": {
+          "name": "Aktion",
+          "description": "PTZ-Aktion: left, right, up, down, zoom_in, zoom_out, home, preset."
+        },
+        "speed": {
+          "name": "Geschwindigkeit",
+          "description": "Bewegungsgeschwindigkeit 1-100 (Standard: 50)."
+        },
+        "preset_id": {
+          "name": "Preset-ID",
+          "description": "Erforderlich, wenn die Aktion preset ist."
+        }
+      }
+    },
+    "clear_session": {
+      "name": "Sitzung löschen",
+      "description": "Lösche den cctvQL-Gesprächsverlauf einer Sitzung.",
+      "fields": {
+        "session_id": {
+          "name": "Sitzungs-ID",
+          "description": "Zu löschende Sitzung (Standard: homeassistant)."
+        }
+      }
+    }
+  }
+}
