@@ -21,6 +21,7 @@ Run:
 
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 from collections import Counter
@@ -400,7 +401,7 @@ class BearerAuthMiddleware:
         if scope.get("type") == "http" and scope.get("path", "") != "/healthz":
             headers = dict(scope.get("headers") or [])
             auth = headers.get(b"authorization", b"").decode()
-            if auth != f"Bearer {self.token}":
+            if not hmac.compare_digest(auth, f"Bearer {self.token}"):
                 await send(
                     {
                         "type": "http.response.start",
