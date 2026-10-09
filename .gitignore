@@ -33,3 +33,9 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local AI assistant / OS / env files
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
